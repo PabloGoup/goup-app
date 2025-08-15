@@ -16,6 +16,6 @@
       
     }
   },
-  "include": ["src", "vite.config.ts", "public/api"],
+  "include": ["src", "vite.config.ts", "public/api", "functions"],
   "exclude": ["api"]  
 }
