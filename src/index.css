@@ -2,41 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
-  height: 100%;
-  background: #090909;
-  color: #fff;
+/* ====== Compat (actualizado para que light = crema) ====== */
+:root {
+  /* para utilidades antiguas que usaban --bg/--fg */
+  --bg: #090808;           /* crema suave */
+  --fg: #ffffff;           /* casi negro */
+  --brand: #8e2afc;        /* morado de marca */
+  --surface-1: #fffaf0;
+  --surface-2: #fff4db;
+  --surface-3: #ffefcc;
+  --muted-hex: #6b6f76;
 }
 
+/* ====== TOKENS HSL (MODO CLARO – crema con texto negro) ======
+   Usar con bg-background, text-foreground, bg-card, etc.            */
+:root {
+  --bg: #090909;
+  --fg: #ffffff;
+
+  --background: 240 5.9% 00%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 12%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 12%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 268 96% 58%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 4% 18%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 4% 18%;
+  --muted-foreground: 240 5% 64%;
+  --accent: 268 60% 22%;
+  --accent-foreground: 0 0% 98%;
+
+  --border: 240 4% 26%;
+  --input: 240 4% 26%;
+  --ring: var(--primary);
+}
+
+/* ====== MODO OSCURO (por clase .dark) – tu look actual ====== */
+.dark {
+  /* compat */
+  --bg: #090909;
+  --fg: #ffffff;
+
+  --background: 240 5.9% 0%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 12%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 12%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 268 96% 58%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 4% 18%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 4% 18%;
+  --muted-foreground: 240 5% 64%;
+  --accent: 268 60% 22%;
+  --accent-foreground: 0 0% 98%;
+
+  --border: 240 4% 26%;
+  --input: 240 4% 26%;
+  --ring: var(--primary);
+}
+
+/* Google Places (tu CSS) */
+.pac-container {
+  z-index: 9999 !important;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pac-item { cursor: pointer; }
+
+/* ====== MAPEO BASE A TAILWIND ====== */
+@layer base {
+  * { @apply border-border; }
+  html, body, #root { @apply bg-background text-foreground; }
+}
+
+/* ====== UTILIDADES / ANIMACIONES ====== */
 @keyframes slide-in {
-  0% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0%);
-    opacity: 1;
-  }
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0%); opacity: 1; }
 }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.animate-slide-in { animation: slide-in 0.3s ease-out forwards; }
 
-/* tailwind.config.js o index.css */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out forwards;
-}
-
-/* Slider personalizado GoUp *//* --- styles/distance-slider.css --- */
-/* Slider personalizado con un pin de mapa SVG en el thumb */
+/* ====== SLIDER PERSONALIZADO GOUP (ahora temable) ====== */
 .distance-slider {
   width: 100%;
   height: 8px;
-  background: #27212c;
+  background: hsl(var(--muted));            /* antes #27212c */
   border-radius: 6px;
   appearance: none;
   outline: none;
@@ -46,7 +109,7 @@ html, body, #root {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #8e2afc;
+  background: var(--brand);
   border: 3px solid #fff;
   margin-top: -13px;
   cursor: grab;
@@ -60,11 +123,12 @@ html, body, #root {
 .distance-slider:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px #8e2afc80;
 }
-.distance-slider::-moz-range-thumb {
+.distance-slider::-moz-range-thumb,
+.distance-slider::-ms-thumb {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #8e2afc;
+  background: var(--brand);
   border: 3px solid #fff;
   cursor: grab;
   box-shadow: 0 2px 8px #8e2afc40;
@@ -73,15 +137,97 @@ html, body, #root {
   background-position: center;
   background-size: 22px 22px;
 }
-.distance-slider::-ms-thumb {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #8e2afc;
-  border: 3px solid #fff;
-  cursor: grab;
-  background-image: url("data:image/svg+xml;utf8,<svg fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C7.59 2 4 5.58 4 10.03c0 3.79 3.4 7.86 7.12 11.39a1.46 1.46 0 0 0 1.77 0C16.6 17.89 20 13.82 20 10.03 20 5.58 16.41 2 12 2zm0 13.03a3 3 0 1 1 0-6.01 3 3 0 0 1 0 6.01z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 22px 22px;
+
+/* ===== Utils hero fade & neon ===== */
+@layer utilities {
+  /* Desvanecido inferior (ahora usa el token del tema) */
+  .fade-bottom {
+    --fade-bg: hsl(var(--background));
+    background: linear-gradient(to bottom, transparent, var(--fade-bg));
+  }
+
+  .btn-elev {
+    box-shadow: 0 4px 14px rgba(142,42,252,.25), 0 2px 4px rgba(0,0,0,.25);
+  }
+
+  .title-outline {
+    --stroke: rgba(0,0,0,.55);
+    --fill: #fff;
+    --shadow: rgba(0,0,0,.45);
+    -webkit-text-stroke-width: 1.5px;
+    -webkit-text-stroke-color: var(--stroke);
+    -webkit-text-fill-color: var(--fill);
+    paint-order: stroke fill;
+    text-shadow: 0 1px 2px var(--shadow), 0 2px 6px rgba(0,0,0,.30);
+    letter-spacing: 0.01em;
+  }
+  @media (max-width: 640px) { .title-outline { -webkit-text-stroke-width: 1px; } }
+
+  .neon-card { position: relative; overflow: hidden; }
+  .neon-card::before {
+    content: "";
+    position: absolute; inset: -40%;
+    z-index: 0; opacity: 0;
+    transition: opacity 350ms ease, transform 350ms ease;
+    background: radial-gradient(
+      35% 35% at 50% 50%,
+      color-mix(in oklab, var(--brand) 70%, transparent),
+      transparent 70%
+    );
+    filter: blur(30px);
+    transform: scale(0.9);
+  }
+  .neon-card:hover::before { opacity: 0.9; transform: scale(1); }
+
+  .text-outline {
+    text-shadow: 0 0 1px rgba(0,0,0,.7), 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  .bleed-x {
+    position: relative;
+    width: 100vw;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+  }
+
+  .edge-fade {
+    --fade: 32px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade),
+      black calc(100% - var(--fade)),
+      transparent 100%
+    );
+            mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade),
+      black calc(100% - var(--fade)),
+      transparent 100%
+    );
+  }
+  @media (min-width: 640px) { .edge-fade { --fade: 48px; } }
+  @media (min-width: 1024px){ .edge-fade { --fade: 64px; } }
+
+  .carousel-fade-left{
+    background: linear-gradient(
+      to right,
+      rgba(9,9,9,0.98) 0%,
+      rgba(9,9,9,0.70) 35%,
+      rgba(9,9,9,0.35) 70%,
+      rgba(9,9,9,0.00) 100%
+    );
+  }
+  .carousel-fade-right{
+    background: linear-gradient(
+      to left,
+      rgba(9,9,9,0.98) 0%,
+      rgba(9,9,9,0.70) 35%,
+      rgba(9,9,9,0.35) 70%,
+      rgba(9,9,9,0.00) 100%
+    );
+  }
 }

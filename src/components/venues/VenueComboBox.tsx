@@ -1,133 +1,188 @@
 // src/components/venues/VenueComboBox.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Firestore, collection, getDocs, orderBy, query } from "firebase/firestore";
+import {
+  Firestore,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+} from "firebase/firestore";
 import { db as firebaseDb } from "@/lib/firebase";
 
-type Club = { id: string; nombre: string };
+type ClubOption = { id: string; nombre: string };
 
 export default function VenueComboBox({
   value,
   onChange,
   onNewVenue,
   label = "Localidad (Club) *",
+  placeholder = "Buscar un club por nombre…",
 }: {
   value: string;
   onChange: (id: string) => void;
-  onNewVenue?: () => void;
+  onNewVenue: () => void;
   label?: string;
+  placeholder?: string;
 }) {
+  const [clubs, setClubs] = useState<ClubOption[]>([]);
+  const [queryText, setQueryText] = useState("");
   const [open, setOpen] = useState(false);
-  const [everClicked, setEverClicked] = useState(false); // ← clave: no abrir si nunca se clicó
-  const [qtext, setQtext] = useState("");
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedName, setSelectedName] = useState("");
 
-  const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const closingRef = useRef(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setOpen(false); }, []); // nunca abierto al montar
-
+  // Cargar clubs
   useEffect(() => {
     (async () => {
-      const qs = query(collection(firebaseDb as Firestore, "club"), orderBy("nombre"));
-      const snap = await getDocs(qs);
-      setClubs(snap.docs.map(d => ({ id: d.id, nombre: String(d.data().nombre || "") })));
+      const qRef = query(
+        collection(firebaseDb as Firestore, "club"),
+        orderBy("nombre")
+      );
+      const snap = await getDocs(qRef);
+      setClubs(
+        snap.docs.map((d) => ({
+          id: d.id,
+          nombre: (d.data() as any).nombre || "(Sin nombre)",
+        }))
+      );
     })();
   }, []);
 
+  // Cerrar al hacer click fuera (pero no cuando selecciono una opción)
   useEffect(() => {
-    setSelectedName(clubs.find(c => c.id === value)?.nombre ?? "");
-  }, [value, clubs]);
-
-  const filtered = useMemo(() => {
-    const t = qtext.trim().toLowerCase();
-    return t ? clubs.filter(c => c.nombre.toLowerCase().includes(t)) : clubs;
-  }, [qtext, clubs]);
-
-  useEffect(() => {
-    const onDocPointerDown = (ev: PointerEvent) => {
-      if (!open) return;
-      if (!rootRef.current?.contains(ev.target as Node)) setOpen(false);
+    const onDocPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (
+        !inputRef.current?.contains(t) &&
+        !popoverRef.current?.contains(t)
+      ) {
+        setOpen(false);
+      }
     };
-    document.addEventListener("pointerdown", onDocPointerDown, { capture: true });
-    return () => document.removeEventListener("pointerdown", onDocPointerDown, { capture: true });
+    if (open) {
+      document.addEventListener("pointerdown", onDocPointerDown);
+    }
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [open]);
 
-  const selectClub = (id: string) => {
-    closingRef.current = true;
+  // Texto mostrado en el input: si no hay filtro, mostrar el nombre del seleccionado
+  const selected = useMemo(
+    () => clubs.find((c) => c.id === value) || null,
+    [clubs, value]
+  );
+  const inputValue = open ? queryText : selected?.nombre ?? "";
+
+  const filtered = useMemo(() => {
+    const q = queryText.trim().toLowerCase();
+    if (!q) return clubs;
+    return clubs.filter((c) => c.nombre.toLowerCase().includes(q));
+  }, [clubs, queryText]);
+
+  const handleSelect = (opt: ClubOption) => {
+    onChange(opt.id);
+    setQueryText("");
     setOpen(false);
-    requestAnimationFrame(() => {
-      onChange(id);
-      closingRef.current = false;
-      setQtext("");
-      inputRef.current?.blur();
-    });
+    // Mantener el foco para evitar saltos de viewport en móvil
+    inputRef.current?.focus({ preventScroll: true });
   };
 
-  const handleTriggerClick = () => {
-    if (closingRef.current) return;
-    setEverClicked(true);
-    setOpen(o => !o);
-    if (!open) requestAnimationFrame(() => inputRef.current?.focus());
+  // Handlers para móvil/desktop:
+  // - pointerdown/touchstart/mousedown → prevenimos blur y seleccionamos
+  const selectEvents = {
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault(); // evita blur antes del "click" en móvil
+    },
+    onMouseDown: (e: React.MouseEvent) => {
+      e.preventDefault();
+    },
+    onTouchStart: (e: React.TouchEvent) => {
+      e.preventDefault();
+    },
   };
 
   return (
-    <div ref={rootRef} className="relative">
-      <label className="block mb-1 text-sm text-white/70">{label}</label>
+    <div className="space-y-2">
+      <label className="text-sm /70">{label}</label>
 
-      <button
-        type="button"
-        className="w-full rounded border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-white hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-[#8e2afc]"
-        onClick={handleTriggerClick}
-      >
-        {selectedName || <span className="text-white/40">Buscar un club por nombre…</span>}
-      </button>
+      <div className="relative">
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            className="w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc]"
+            placeholder={placeholder}
+            value={inputValue}
+            onFocus={() => {
+              setOpen(true);
+              setQueryText(""); // al abrir, habilita búsqueda
+            }}
+            onChange={(e) => {
+              setQueryText(e.target.value);
+              if (!open) setOpen(true);
+            }}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            role="combobox"
+            inputMode="search"
+            autoComplete="off"
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded border /10 px-2 py-2 text-xs /70 hover:bg-white/10"
+            onClick={() => onNewVenue()}
+          >
+            + Nueva localidad
+          </button>
+        </div>
 
-      {open && everClicked && (
-        <div className="absolute z-40 mt-2 w-full rounded-lg border border-white/10 bg-[#0b0b0d] shadow-xl">
-          <div className="p-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={qtext}
-              onChange={(e) => setQtext(e.target.value)}
-              placeholder="Buscar…"
-              className="w-full rounded bg-white/[0.06] px-3 py-2 text-white placeholder-white/40 border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#8e2afc]"
-              onBlur={() => setTimeout(() => {
-                if (!rootRef.current?.contains(document.activeElement)) setOpen(false);
-              }, 0)}
-              onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
-            />
-          </div>
-
-          <ul className="max-h-64 overflow-auto py-1">
-            {filtered.length === 0 && (
-              <li className="px-3 py-2 text-sm text-white/50">Sin resultados</li>
-            )}
-            {filtered.map((c) => (
-              <li key={c.id}>
+        {open && (
+          <div
+            ref={popoverRef}
+            className="absolute z-30 mt-1 w-full rounded-lg border /10 bg-neutral-900/95 backdrop-blur-sm shadow-lg max-h-64 overflow-auto"
+            role="listbox"
+          >
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-sm /60 flex items-center justify-between">
+                <span>Sin resultados</span>
                 <button
                   type="button"
-                  className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-white/[0.06]"
-                  onPointerDown={(e) => { e.preventDefault(); selectClub(c.id); }}
+                  className="text-[#cbb3ff] hover:underline"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={onNewVenue}
                 >
-                  {c.nombre}
+                  + Nueva localidad
                 </button>
-              </li>
-            ))}
-            <li className="border-t border-white/10 mt-1">
-              <button
-                type="button"
-                className="block w-full text-left px-3 py-2 text-sm text-[#cbb3ff] hover:bg-white/[0.06]"
-                onPointerDown={(e) => { e.preventDefault(); setOpen(false); onNewVenue?.(); }}
-              >
-                + Nueva localidad
-              </button>
-            </li>
-          </ul>
-        </div>
-      )}
+              </div>
+            ) : (
+              <>
+                {filtered.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 ${
+                      opt.id === value ? "bg-white/5" : ""
+                    }`}
+                    {...selectEvents}
+                    onClick={() => handleSelect(opt)}
+                    role="option"
+                    aria-selected={opt.id === value}
+                  >
+                    {opt.nombre}
+                  </button>
+                ))}
+                <div className="border-t /10" />
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm text-[#cbb3ff] hover:bg-white/10"
+                  {...selectEvents}
+                  onClick={onNewVenue}
+                >
+                  + Nueva localidad
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

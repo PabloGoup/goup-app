@@ -40,7 +40,7 @@ type DBUsuario = {
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block mb-1 text-sm font-medium text-white/80">{label}</span>
+      <span className="block mb-1 text-sm font-medium /80">{label}</span>
       {children}
       {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
     </label>
@@ -60,7 +60,7 @@ function TextInput({ name, register, type = "text", placeholder, disabled }: Tex
       type={type}
       placeholder={placeholder}
       disabled={disabled}
-      className="w-full rounded-md bg-transparent border border-white/20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
+      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
       {...register(name)}
     />
   );
@@ -76,7 +76,7 @@ function SelectInput({ name, register, options, disabled }: SelectInputProps) {
   return (
     <select
       disabled={disabled}
-      className="w-full rounded-md bg-transparent border border-white/20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
+      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
       {...register(name)}
     >
       {options.map((o) => (
@@ -171,11 +171,11 @@ export default function RoleRequestStatusPage() {
     setSaving(false);
   });
 
-  if (loading) return <div className="p-6 text-white">Cargando...</div>;
-  if (!record) return <div className="p-6 text-white"><p>No se encontró tu registro.</p></div>;
+  if (loading) return <div className="p-6 ">Cargando...</div>;
+  if (!record) return <div className="p-6 "><p>No se encontró tu registro.</p></div>;
 
   return (
-    <main className="bg-black text-white">
+    <main className="bg-black ">
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* … resto de la UI usando <Field>, <TextInput register={register} … />, <SelectInput register={register} … /> … */}
       </div>
@@ -185,8 +185,8 @@ export default function RoleRequestStatusPage() {
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <p className="text-sm text-white/80 flex items-baseline justify-between gap-3">
-      <span className="text-white/60">{k}</span>
+    <p className="text-sm /80 flex items-baseline justify-between gap-3">
+      <span className="/60">{k}</span>
       <span className="text-right">{v ?? "—"}</span>
     </p>
   );

@@ -92,7 +92,7 @@ type EditForm = z.infer<typeof editSchema>;
 const BTN_PRIMARY =
   "inline-flex items-center justify-center rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
 const BTN_SECONDARY =
-  "inline-flex items-center justify-center px-4 py-2 rounded border border-white/20 hover:bg-white/10 text-sm font-semibold";
+  "inline-flex items-center justify-center px-4 py-2 rounded border /20 hover:bg-white/10 text-sm font-semibold";
 
 // — UI helpers
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -105,9 +105,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-white/5 border border-white/10 px-3 py-2">
-      <p className="text-white/60 text-xs">{label}</p>
-      <p className="text-white break-words">{value}</p>
+    <div className="rounded-md bg-white/5 border /10 px-3 py-2">
+      <p className="/60 text-xs">{label}</p>
+      <p className=" break-words">{value}</p>
     </div>
   );
 }
@@ -269,10 +269,10 @@ export default function UserClubes() {
   });
 
   // Render
-  if (loading) return <div className="p-6 text-white">Cargando mi club…</div>;
+  if (loading) return <div className="p-6 ">Cargando mi club…</div>;
   if (!club) {
     return (
-      <div className="text-white/80 p-6">
+      <div className="/80 p-6">
         <p>No tienes un club creado todavía.</p>
         <Link to="/club/crear" className={BTN_PRIMARY}>
           Crear club
@@ -284,7 +284,7 @@ export default function UserClubes() {
   const backHref = "/mis-eventos";
 
   return (
-    <div className="text-white">
+    <div className="">
       {/* Hero */}
       <div className="relative w-full h-[280px] md:h-[360px] overflow-hidden">
         {club.banner ? (
@@ -315,7 +315,7 @@ export default function UserClubes() {
           </div>
           <div className="pb-1">
             <h1 className="text-3xl font-extrabold drop-shadow">{club.nombre}</h1>
-            <p className="text-white/80">
+            <p className="/80">
               {[club.ciudad, club.pais].filter(Boolean).join(", ")}
             </p>
           </div>
@@ -342,16 +342,16 @@ export default function UserClubes() {
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 {club.descripcion && (
-                  <section className="p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                  <section className="p-5 bg-white/[0.03] rounded-xl border /10">
                     <h2 className="text-lg font-bold text-[#cbb3ff] mb-2">
                       Descripción
                     </h2>
-                    <p className="text-white/80 leading-relaxed">
+                    <p className="/80 leading-relaxed">
                       {club.descripcion}
                     </p>
                   </section>
                 )}
-                <section className="p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                <section className="p-5 bg-white/[0.03] rounded-xl border /10">
                   <h2 className="text-lg font-bold text-[#cbb3ff] mb-3">
                     Servicios
                   </h2>
@@ -366,11 +366,11 @@ export default function UserClubes() {
                 </section>
               </div>
               <aside className="space-y-6">
-                <section className="p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                <section className="p-5 bg-white/[0.03] rounded-xl border /10">
                   <h3 className="text-sm font-semibold text-[#cbb3ff] mb-2">
                     Contacto
                   </h3>
-                  <div className="space-y-2 text-sm text-white/80">
+                  <div className="space-y-2 text-sm /80">
                     {club.telefono && <Info label="Teléfono" value={club.telefono} />}
                     {club.email && <Info label="Email" value={club.email} />}
                     {club.sitio_web && <Info label="Web" value={club.sitio_web} />}
@@ -427,8 +427,8 @@ export default function UserClubes() {
               <Section title="Imágenes">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <div className="text-white/70 mb-2">Avatar actual</div>
-                    <div className="rounded border border-white/10 mb-2 h-48 overflow-hidden">
+                    <div className="/70 mb-2">Avatar actual</div>
+                    <div className="rounded border /10 mb-2 h-48 overflow-hidden">
                       {club.imagen ? (
                         <img src={club.imagen} className="w-full h-full object-cover" />
                       ) : (
@@ -440,8 +440,8 @@ export default function UserClubes() {
                     <RHFFile name="imagenFile" label="Reemplazar avatar" />
                   </div>
                   <div>
-                    <div className="text-white/70 mb-2">Banner actual</div>
-                    <div className="rounded border border-white/10 mb-2 h-48 overflow-hidden">
+                    <div className="/70 mb-2">Banner actual</div>
+                    <div className="rounded border /10 mb-2 h-48 overflow-hidden">
                       {club.banner ? (
                         <img src={club.banner} className="w-full h-full object-cover" />
                       ) : (
@@ -456,7 +456,7 @@ export default function UserClubes() {
               </Section>
 
               {/* Sticky toolbar */}
-              <div className="sticky bottom-0 left-0 right-0 bg-black/70 backdrop-blur px-4 py-3 flex justify-end gap-3 border-t border-white/10">
+              <div className="sticky bottom-0 left-0 right-0 bg-black/70 backdrop-blur px-4 py-3 flex justify-end gap-3 border-t /10">
                 <button type="button" onClick={handleCancel} className={BTN_SECONDARY}>
                   Cancelar
                 </button>
@@ -473,7 +473,7 @@ export default function UserClubes() {
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/60">
             <div className="panel w-[90vw] max-w-md text-center p-6">
               <h3 className="text-lg font-semibold mb-2">¿Guardar los cambios?</h3>
-              <p className="text-white/70 mb-5">Se actualizarán los datos del club.</p>
+              <p className="/70 mb-5">Se actualizarán los datos del club.</p>
               <div className="flex justify-center gap-3">
                 <button className={BTN_SECONDARY} onClick={() => setConfirmOpen(false)}>
                   No

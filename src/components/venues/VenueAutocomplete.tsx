@@ -77,7 +77,7 @@ export default function VenueAutocomplete({
 
   return (
     <div className="space-y-1 relative">
-      <label className="block text-sm text-white/70">{label}</label>
+      <label className="block text-sm /70">{label}</label>
       <div
         className="input w-full cursor-text"
         onFocus={() => setOpen(true)}
@@ -93,10 +93,10 @@ export default function VenueAutocomplete({
       </div>
 
       {showList && (
-        <div className="absolute z-30 mt-1 w-full rounded-md border border-white/10 bg-neutral-900 shadow-xl max-h-64 overflow-auto">
-          {loading && <div className="px-3 py-2 text-sm text-white/60">Buscando…</div>}
+        <div className="absolute z-30 mt-1 w-full rounded-md border /10 bg-neutral-900 shadow-xl max-h-64 overflow-auto">
+          {loading && <div className="px-3 py-2 text-sm /60">Buscando…</div>}
           {!loading && items.length === 0 && (
-            <div className="px-3 py-2 text-sm text-white/60">Sin resultados</div>
+            <div className="px-3 py-2 text-sm /60">Sin resultados</div>
           )}
           {!loading &&
             items.map((it) => (
@@ -112,7 +112,7 @@ export default function VenueAutocomplete({
                 }}
               >
                 <div className="text-sm">{it.nombre}</div>
-                <div className="text-xs text-white/50">
+                <div className="text-xs /50">
                   {[it.ciudad, it.pais].filter(Boolean).join(", ")}
                 </div>
               </button>
@@ -120,7 +120,7 @@ export default function VenueAutocomplete({
           {onNewVenue && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-[#cbb3ff] hover:bg-white/5 border-t border-white/10"
+              className="w-full text-left px-3 py-2 text-[#cbb3ff] hover:bg-white/5 border-t /10"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setOpen(false);

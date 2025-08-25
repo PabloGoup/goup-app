@@ -87,7 +87,7 @@ import React, {
           <CheckCircle2 className="text-green-400" />
         </div>
         <h2 className="text-xl font-semibold text-green-400">{title}</h2>
-        {subtitle && <p className="text-white/70 mt-2">{subtitle}</p>}
+        {subtitle && <p className="/70 mt-2">{subtitle}</p>}
       </div>
     );
   }
@@ -141,9 +141,9 @@ import React, {
           {...props}
           className={`rounded-md px-3 py-2 bg-[#0f0f16] border ${
             err ? "border-red-500" : "border-[#3a3357]"
-          } focus:outline-none focus:border-[#8e2afc] placeholder:text-white/30`}
+          } focus:outline-none focus:border-[#8e2afc] placeholder:/30`}
         />
-        {helper && <span className="text-xs text-white/40">{helper}</span>}
+        {helper && <span className="text-xs /40">{helper}</span>}
         {err && <span className="text-xs text-red-500">{err}</span>}
       </label>
     );
@@ -180,9 +180,9 @@ import React, {
           {...props}
           className={`rounded-md px-3 py-2 bg-[#0f0f16] border ${
             err ? "border-red-500" : "border-[#3a3357]"
-          } focus:outline-none focus:border-[#8e2afc] placeholder:text-white/30`}
+          } focus:outline-none focus:border-[#8e2afc] placeholder:/30`}
         />
-        {helper && <span className="text-xs text-white/40">{helper}</span>}
+        {helper && <span className="text-xs /40">{helper}</span>}
         {err && <span className="text-xs text-red-500">{err}</span>}
       </label>
     );
@@ -299,7 +299,7 @@ import React, {
                 shouldValidate: true,
               });
             }}
-            className="flex-1 bg-transparent focus:outline-none text-white file:mr-2 file:rounded file:border-none file:bg-[#8e2afc] file:px-2 file:py-1 file:text-white"
+            className="flex-1 bg-transparent focus:outline-none  file:mr-2 file:rounded file:border-none file:bg-[#8e2afc] file:px-2 file:py-1 file:"
           />
         </div>
   
@@ -361,7 +361,7 @@ import React, {
     const { getValues } = useFormContextSafe<T>();
     const values = getValues();
     return (
-      <pre className="bg-[#0f0f16] border border-white/5 rounded-md p-4 text-xs overflow-x-auto">
+      <pre className="bg-[#0f0f16] border /5 rounded-md p-4 text-xs overflow-x-auto">
         {JSON.stringify(values, null, 2)}
       </pre>
     );

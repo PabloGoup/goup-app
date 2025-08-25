@@ -125,15 +125,15 @@ export default function ProducerCreatePage() {
   });
 
   if (loading) {
-    return <div className="p-6 text-white">Cargando…</div>;
+    return <div className="p-6 ">Cargando…</div>;
   }
 
   if (hasProducer) {
     return (
-      <main className="text-white px-4 py-8">
-        <div className="max-w-xl mx-auto rounded-xl border border-white/10 bg-white/[0.03] p-6 text-center">
+      <main className=" px-4 py-8">
+        <div className="max-w-xl mx-auto rounded-xl border /10 bg-white/[0.03] p-6 text-center">
           <h2 className="text-xl font-bold mb-2">Ya tienes una productora</h2>
-          <p className="text-white/70 mb-4">
+          <p className="/70 mb-4">
             Puedes administrar tus datos desde “Mi productora”.
           </p>
           <button
@@ -148,13 +148,13 @@ export default function ProducerCreatePage() {
   }
 
   return (
-    <main className="text-white px-4 py-8 ">
+    <main className=" px-4 py-8 ">
       <header className="max-w-3xl mx-auto space-y-2 mb-8 text-center">
         <img src={logo} alt="GoUp" className="mx-auto w-28 " />
         <h1 className="text-3xl md:text-4xl font-extrabold">
           CREAR <span className="text-[#8e2afc]">PRODUCTORA</span>
         </h1>
-        <p className="text-white/70">
+        <p className="/70">
           Publica tu productora para gestionar tus datos de contacto.
         </p>
       </header>

@@ -1,7 +1,7 @@
 import { FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import AddressMapInputGoogle from "@/components/form/AddressMapInput";
+import AddressMapInputGoogle  from "../form/AddressMapInputGoogle";
 import { RHFInput, RHFFile } from "@/components/form/control";
 import { db } from "@/lib/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
@@ -98,7 +98,7 @@ export default function NewVenueModal({
             <RHFInput name="contacto" label="Teléfono o email de contacto" />
             <RHFFile name="foto" label="Fotografía" />
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="px-4 py-2 rounded border border-white/20" onClick={onClose}>Cancelar</button>
+              <button type="button" className="px-4 py-2 rounded border /20" onClick={onClose}>Cancelar</button>
               <button type="submit" className="px-4 py-2 rounded bg-[#8e2afc]">Guardar</button>
             </div>
           </form>

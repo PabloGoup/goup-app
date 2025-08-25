@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <mask id="owlCarve" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <!-- Base white (keep) -->
+      <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+      <!-- Owl lines in black (carve) -->
+      <!-- Reuse the same shapes as in owl-mask.svg -->
+      <g transform="translate(0,0)">
+        <path d="M256 336 C256 250, 768 250, 768 336" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+        <path d="M210 464 C210 410, 270 410, 270 464" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+        <path d="M754 464 C754 410, 814 410, 814 464" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+        <circle cx="384" cy="480" r="150" stroke="black" stroke-width="80" fill="none" />
+        <circle cx="640" cy="480" r="150" stroke="black" stroke-width="80" fill="none" />
+        <rect x="480" y="440" width="64" height="80" rx="32" fill="black"/>
+        <circle cx="384" cy="480" r="20" stroke="black" stroke-width="40" fill="none" />
+        <circle cx="640" cy="480" r="20" stroke="black" stroke-width="40" fill="none" />
+        <path d="M320 704 C320 640, 320 640, 360 560" stroke="black" stroke-width="60" stroke-linecap="round" fill="none"/>
+        <path d="M704 704 C704 640, 704 640, 664 560" stroke="black" stroke-width="60" stroke-linecap="round" fill="none"/>
+        <path d="M512 570 L548 610 L476 610 Z" fill="black"/>
+        <path d="M472 668 C512 712, 552 668, 552 668" stroke="black" stroke-width="40" stroke-linecap="round" fill="none"/>
+        <path d="M408 820 Q392 860 376 820 Q392 840 408 860" stroke="black" stroke-width="36" stroke-linecap="round" fill="none"/>
+        <path d="M616 820 Q600 860 584 820 Q600 840 616 860" stroke="black" stroke-width="36" stroke-linecap="round" fill="none"/>
+      </g>
+    </mask>
+  </defs>
+
+  <!-- Example "U" block: rounded shape (you can swap for your exact U vector) -->
+  <g>
+    <!-- Outer rounded rectangle as container -->
+    <rect x="128" y="128" width="768" height="768" rx="120" fill="#8E2AFC" mask="url(#owlCarve)"/>
+  </g>
+</svg>

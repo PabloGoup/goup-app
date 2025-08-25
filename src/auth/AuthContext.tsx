@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uid: user.uid,
             email: user.email ?? "",
             nombre: user.displayName ?? "",
-            rol: "admin", // ✅ rol por defecto permitido
+            rol: "user", // ✅ rol por defecto permitido
             creado: new Date(),
           };
           await setDoc(ref, newUser);

@@ -17,7 +17,7 @@ export default function UserMenu() {
     return (
       <button
         onClick={() => signInWithGoogle()}
-        className="px-3 py-1.5 rounded-md bg-[#8e2afc] text-white text-sm hover:opacity-90"
+        className="px-3 py-1.5 rounded-md bg-[#8e2afc]  text-sm hover:opacity-90"
       >
         Iniciar sesión
       </button>
@@ -35,7 +35,7 @@ export default function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-9 h-9 rounded-full overflow-hidden border border-white/20"
+        className="w-9 h-9 rounded-full overflow-hidden border /20"
         aria-label="Abrir menú de usuario"
       >
         {avatar ? (
@@ -46,17 +46,17 @@ export default function UserMenu() {
             referrerPolicy="no-referrer"
           />
         ) : (
-          <span className="w-full h-full flex items-center justify-center bg-white/10 text-white text-sm">
+          <span className="w-full h-full flex items-center justify-center bg-white/10  text-sm">
             {name[0]}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-md bg-neutral-900 border border-white/10 shadow-lg text-sm text-white z-50">
-          <div className="px-3 py-2 border-b border-white/10">
+        <div className="absolute right-0 mt-2 w-48 rounded-md bg-neutral-900 border /10 shadow-lg text-sm  z-50">
+          <div className="px-3 py-2 border-b /10">
             <p className="font-semibold truncate">{name}</p>
-            <p className="text-white/60 truncate">{user.email}</p>
+            <p className="/60 truncate">{user.email}</p>
           </div>
 
           <ul className="py-1">

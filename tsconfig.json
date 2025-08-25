@@ -1,21 +1,20 @@
 {
   "compilerOptions": {
-    
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "moduleResolution": "node",
-    "jsx": "react-jsx",
-   // "types": ["@vercel/node"],
-    "strict": true,
     "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-      
-    }
+    },
+    "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts", "public/api", "functions"],
-  "exclude": ["api"]  
+  "include": ["src"]
 }

@@ -8,7 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useStepper } from "@/hooks/useStepper";
 import { useAuth } from "@/auth/AuthContext";
-import { AddressMapInput } from "@/components/form/AddressMapInput";
+
+// ⬇️ IMPORT CORRECTO (default) DEL COMPONENTE
+import AddressMapInputGoogle from "@/components/form/AddressMapInputGoogle";
 
 import {
   RHFInput,
@@ -37,14 +39,14 @@ import {
 import { db as firebaseDb } from "@/lib/firebase";
 
 /** 1) Esquema y tipos */
-  const clubSchema = z.object({
-    nombre: z.string().min(1, "El nombre es obligatorio"),
-    descripcion: z.string().min(1, "La descripción es obligatoria"),
-    direccion: z.string().min(1, "La dirección es obligatoria"),
-    ciudad: z.string().min(1, "La ciudad es obligatoria"),
-    pais: z.string().min(1, "El país es obligatorio"),
-    latitud: z.number().optional().nullable(),
-    longitud: z.number().optional().nullable(),
+const clubSchema = z.object({
+  nombre: z.string().min(1, "El nombre es obligatorio"),
+  descripcion: z.string().min(1, "La descripción es obligatoria"),
+  direccion: z.string().min(1, "La dirección es obligatoria"),
+  ciudad: z.string().min(1, "La ciudad es obligatoria"),
+  pais: z.string().min(1, "El país es obligatorio"),
+  latitud: z.number().optional().nullable(),
+  longitud: z.number().optional().nullable(),
   telefono: z.string().optional().or(z.literal("")),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   sitio_web: z.string().url("URL inválida").optional().or(z.literal("")),
@@ -89,21 +91,30 @@ const defaultClubValues: ClubFormValues = {
 
 /** 3) Pasos del wizard */
 type Step = { icon: string; title: string; content: React.ReactNode };
-function useSteps(): Step[] {
+function useSteps(locks: { city: boolean; country: boolean }): Step[] {
   return [
     {
       icon: "🏷️",
       title: "Identidad & contacto",
       content: (
         <LocalCard title="Identidad & contacto">
-             <RHFInput name="nombre" label="Nombre del club *" />
-              <RHFTextarea name="descripcion" label="Descripción *" rows={4} />
-              {/* 👇 Aquí va el nuevo componente */}
-              <AddressMapInput />
-              <div className="grid md:grid-cols-2 gap-4">
-               <RHFInput name="ciudad" label="Ciudad *" />
-                <RHFInput name="pais" label="País *" />
-              </div>
+          <RHFInput name="nombre" label="Nombre del club *" />
+          <RHFTextarea name="descripcion" label="Descripción *" rows={4} />
+
+          {/* Autocompletar Google + mapa */}
+          <AddressMapInputGoogle
+            onLock={(l) => {
+              // l.city / l.country true => bloquear inputs
+              // La asignación la hace el padre (ClubWizard) via setLocks()
+            }}
+          />
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Estos disabled los setea el padre vía props; ver ClubWizard abajo */}
+            <RHFInput name="ciudad" label="Ciudad *" disabled={locks.city} />
+            <RHFInput name="pais" label="País *" disabled={locks.country} />
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <RHFInput name="telefono" label="Teléfono" />
             <RHFInput name="email" label="Email" />
@@ -131,42 +142,16 @@ function useSteps(): Step[] {
       content: (
         <LocalCard title="Servicios & capacidades">
           <div className="grid md:grid-cols-2 gap-4">
-            <RHFSelect
-              name="accesibilidad"
-              label="Accesibilidad"
-              options={["Sí", "No"]}
-            />
-            <RHFSelect
-              name="estacionamientos"
-              label="Estacionamientos"
-              options={["Sí", "No"]}
-            />
-            <RHFSelect
-              name="guardaropia"
-              label="Guardarropía"
-              options={["Sí", "No"]}
-            />
+            <RHFSelect name="accesibilidad" label="Accesibilidad" options={["Sí", "No"]} />
+            <RHFSelect name="estacionamientos" label="Estacionamientos" options={["Sí", "No"]} />
+            <RHFSelect name="guardaropia" label="Guardarropía" options={["Sí", "No"]} />
             <RHFSelect name="terraza" label="Terraza" options={["Sí", "No"]} />
-            <RHFSelect
-              name="fumadores"
-              label="Zona de fumadores"
-              options={["Sí", "No"]}
-            />
-            <RHFSelect name="wifi" label="Wi-Fi" options={["Sí", "No"]} />
+            <RHFSelect name="fumadores" label="Zona de fumadores" options={["Sí", "No"]} />
+            <RHFSelect name="wifi" label="Wi‑Fi" options={["Sí", "No"]} />
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <RHFInput
-              name="ambientes"
-              type="number"
-              label="Ambientes"
-              placeholder="Ej: 3"
-            />
-            <RHFInput
-              name="banos"
-              type="number"
-              label="Baños"
-              placeholder="Ej: 2"
-            />
+            <RHFInput name="ambientes" type="number" label="Ambientes" placeholder="Ej: 3" />
+            <RHFInput name="banos" type="number" label="Baños" placeholder="Ej: 2" />
           </div>
         </LocalCard>
       ),
@@ -181,9 +166,7 @@ function StepDots({ step, total }: { step: number; total: number }) {
       {Array.from({ length: total }).map((_, i) => (
         <span
           key={i}
-          className={`h-2 w-2 rounded-full ${
-            i === step ? "bg-[#8e2afc]" : "bg-white/20"
-          }`}
+          className={`h-2 w-2 rounded-full ${i === step ? "bg-[#8e2afc]" : "bg-white/20"}`}
         />
       ))}
     </div>
@@ -193,9 +176,7 @@ function LoadingButton({
   loading,
   children,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  loading?: boolean;
-}) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) {
   return (
     <button
       className="inline-flex items-center justify-center rounded-md bg-[#8e2afc] px-4 py-2 text-sm font-medium hover:bg-[#7b1fe0] disabled:opacity-50"
@@ -206,18 +187,10 @@ function LoadingButton({
     </button>
   );
 }
-function LocalCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function LocalCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-2xl font-extrabold text-[#8e2afc] flex items-center gap-2">
-        {title}
-      </h2>
+      <h2 className="text-2xl font-extrabold text-[#8e2afc] flex items-center gap-2">{title}</h2>
       <div className="space-y-4">{children}</div>
     </section>
   );
@@ -235,64 +208,71 @@ function ClubWizard() {
     mode: "onChange",
   });
 
-  const steps = useSteps();
-  const { current: step, total, next, prev } = useStepper(steps);
+  // ⬇️ Locks para ciudad/país
+  const [locks, setLocks] = useState<{ city: boolean; country: boolean }>({
+    city: false,
+    country: false,
+  });
 
+  // Pasamos locks a los pasos para que deshabiliten inputs
+  const steps = useSteps(locks);
+
+  const { current: step, total, next, prev } = useStepper(steps);
   const [loadingStep, setLoadingStep] = useState(false);
   const [stepErrors, setStepErrors] = useState<string[]>([]);
   const [sent, setSent] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Inyectamos onLock en el primer paso una vez montado
+  // (Truco simple: sustituimos el nodo AddressMapInputGoogle con un clon que incluya onLock)
+  steps[0].content = (
+    <LocalCard title="Identidad & contacto">
+      <RHFInput name="nombre" label="Nombre del club *" />
+      <RHFTextarea name="descripcion" label="Descripción *" rows={4} />
+      <AddressMapInputGoogle
+        onLock={(l) => setLocks(l)}
+      />
+      <div className="grid md:grid-cols-2 gap-4">
+        <RHFInput name="ciudad" label="Ciudad *" disabled={locks.city} />
+        <RHFInput name="pais" label="País *" disabled={locks.country} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <RHFInput name="telefono" label="Teléfono" />
+        <RHFInput name="email" label="Email" />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <RHFInput name="sitio_web" label="Sitio web" />
+        <RHFInput name="instagram" label="Instagram" />
+      </div>
+    </LocalCard>
+  );
+
   const stepFields: FieldPath<ClubFormValues>[][] = [
-    [
-      "nombre",
-      "descripcion",
-      "direccion",
-      "ciudad",
-      "pais",
-      "telefono",
-      "email",
-      "sitio_web",
-      "instagram",
-    ],
+    ["nombre", "descripcion", "direccion", "ciudad", "pais", "telefono", "email", "sitio_web", "instagram"],
     ["imagen", "banner"],
-    [
-      "accesibilidad",
-      "estacionamientos",
-      "guardaropia",
-      "terraza",
-      "fumadores",
-      "wifi",
-      "ambientes",
-      "banos",
-    ],
+    ["accesibilidad", "estacionamientos", "guardaropia", "terraza", "fumadores", "wifi", "ambientes", "banos"],
   ];
 
-  /** Avanzar paso con validación */
-  /** Avanzar paso con validación */
-const onNext = async () => {
-  const fields = stepFields[step] || [];
-  const ok = await methods.trigger(fields, { shouldFocus: true });
-  if (!ok) {
-    // aquí indicamos que cada 'f' es FieldPath<ClubFormValues>
-    const errs = (fields as FieldPath<ClubFormValues>[]).map((f) => {
-      // errors es Partial<Record<FieldPath<ClubFormValues>, { message?: string }>>
-      const err = methods.formState.errors[f as keyof typeof methods.formState.errors];
-      // forzamos a string o undefined
-      return err?.message as string | undefined;
-    })
-    // filtramos sólo los mensajes no vacíos y casteamos a string[]
-    .filter((m): m is string => Boolean(m));
+  const onNext = async () => {
+    const fields = stepFields[step] || [];
+    const ok = await methods.trigger(fields, { shouldFocus: true });
+    if (!ok) {
+      const errs = (fields as FieldPath<ClubFormValues>[])
+        .map((f) => {
+          const err = methods.formState.errors[f as keyof typeof methods.formState.errors];
+          return err?.message as string | undefined;
+        })
+        .filter((m): m is string => Boolean(m));
+      setStepErrors(errs);
+      toast.error(errs[0] || "Corrige los campos para continuar.");
+      return;
+    }
+    setStepErrors([]);
+    next();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    setStepErrors(errs);
-    toast.error(errs[0] || "Corrige los campos para continuar.");
-    return;
-  }
-  setStepErrors([]);
-  next();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
   /** Submit final: guarda en Firestore */
   const onSubmitFinal = methods.handleSubmit(async (data) => {
     if (sent) return;
@@ -303,16 +283,9 @@ const onNext = async () => {
     setLoadingStep(true);
 
     try {
-      // Verifico que no exista ya un club del usuario
-      const clubesCol = collection(
-        firebaseDb as Firestore,
-        "club"
-      );
-      const userCol = collection(
-        firebaseDb as Firestore,
-        "usersWeb"
-      );
-
+      // Validación de único club por usuario (según tu lógica)
+      const clubesCol = collection(firebaseDb as Firestore, "club");
+      const userCol = collection(firebaseDb as Firestore, "usersWeb");
       const q = query(clubesCol, where("uid_usersWeb", "==", user.uid));
       const p = query(userCol, where("rol", "==", "club_owner"));
       const val = await getDocs(p);
@@ -324,7 +297,7 @@ const onNext = async () => {
         return;
       }
 
-      // Helper para subir archivos
+      // Subida de archivos
       const upload = async (file: File | null, folder: string) => {
         if (!file) return null;
         const storage = getStorage();
@@ -337,7 +310,6 @@ const onNext = async () => {
       const imagenUrl = await upload(data.imagen as File | null, "imagen");
       const bannerUrl = await upload(data.banner as File | null, "banner");
 
-      // Genero un id_club (aquí uso timestamp; ajusta si prefieres otro)
       const idClub = Date.now();
 
       const payload = {
@@ -356,12 +328,9 @@ const onNext = async () => {
         instagram: data.instagram || null,
         imagen: imagenUrl,
         banner: bannerUrl,
-        accesibilidad:
-          data.accesibilidad === true || data.accesibilidad === "Sí",
-        estacionamientos:
-          data.estacionamientos === true || data.estacionamientos === "Sí",
-        guardaropia:
-          data.guardaropia === true || data.guardaropia === "Sí",
+        accesibilidad: data.accesibilidad === true || data.accesibilidad === "Sí",
+        estacionamientos: data.estacionamientos === true || data.estacionamientos === "Sí",
+        guardaropia: data.guardaropia === true || data.guardaropia === "Sí",
         terraza: data.terraza === true || data.terraza === "Sí",
         fumadores: data.fumadores === true || data.fumadores === "Sí",
         wifi: data.wifi === true || data.wifi === "Sí",
@@ -372,7 +341,6 @@ const onNext = async () => {
         createdAt: new Date().toISOString(),
       };
 
-      // Creo el documento con ID aleatorio de Firestore
       await setDoc(doc(clubesCol), payload);
       toast.success("¡Club creado con éxito!");
       setSent(true);
@@ -387,13 +355,13 @@ const onNext = async () => {
   });
 
   return (
-    <main className="px-4 py-8 text-white">
+    <main className="px-4 py-8 ">
       <header className="text-center space-y-2 mb-8">
         <img src={logo} alt="GoUp" className="mx-auto w-28" />
         <h1 className="text-3xl font-extrabold">
           CREAR <span className="text-[#8e2afc]">CLUB</span>
         </h1>
-        <p className="text-white/70">Publica tu club con fotos y detalles.</p>
+        <p className="/70">Publica tu club con fotos y detalles.</p>
       </header>
 
       <FormProvider {...methods}>

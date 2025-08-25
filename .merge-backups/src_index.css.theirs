@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  background: #090909;
+  color: #fff;
+}
+
+@keyframes slide-in {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+}
+
+/* tailwind.config.js o index.css */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+/* Slider personalizado GoUp *//* --- styles/distance-slider.css --- */
+/* Slider personalizado con un pin de mapa SVG en el thumb */
+.distance-slider {
+  width: 100%;
+  height: 8px;
+  background: #27212c;
+  border-radius: 6px;
+  appearance: none;
+  outline: none;
+}
+.distance-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #8e2afc;
+  border: 3px solid #fff;
+  margin-top: -13px;
+  cursor: grab;
+  box-shadow: 0 2px 8px #8e2afc40;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C7.59 2 4 5.58 4 10.03c0 3.79 3.4 7.86 7.12 11.39a1.46 1.46 0 0 0 1.77 0C16.6 17.89 20 13.82 20 10.03 20 5.58 16.41 2 12 2zm0 13.03a3 3 0 1 1 0-6.01 3 3 0 0 1 0 6.01z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 22px 22px;
+  transition: box-shadow 0.2s;
+}
+.distance-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px #8e2afc80;
+}
+.distance-slider::-moz-range-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #8e2afc;
+  border: 3px solid #fff;
+  cursor: grab;
+  box-shadow: 0 2px 8px #8e2afc40;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C7.59 2 4 5.58 4 10.03c0 3.79 3.4 7.86 7.12 11.39a1.46 1.46 0 0 0 1.77 0C16.6 17.89 20 13.82 20 10.03 20 5.58 16.41 2 12 2zm0 13.03a3 3 0 1 1 0-6.01 3 3 0 0 1 0 6.01z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 22px 22px;
+}
+.distance-slider::-ms-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #8e2afc;
+  border: 3px solid #fff;
+  cursor: grab;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C7.59 2 4 5.58 4 10.03c0 3.79 3.4 7.86 7.12 11.39a1.46 1.46 0 0 0 1.77 0C16.6 17.89 20 13.82 20 10.03 20 5.58 16.41 2 12 2zm0 13.03a3 3 0 1 1 0-6.01 3 3 0 0 1 0 6.01z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 22px 22px;
+}
+/* en tu index.css o global */
+.pac-container {
+  z-index: 9999 !important;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pac-item {
+  cursor: pointer;
+}

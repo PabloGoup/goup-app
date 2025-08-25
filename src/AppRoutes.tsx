@@ -1,7 +1,8 @@
 // src/AppRoutes.tsx
 import { Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-
+import CheckIn from "@/pages/CheckIn";
+import EventsBrowse from "@/pages/EventsBrowse";
+import ClubsBrowse from "@/pages/ClubsBrowse";
 import RequireAuth from "./auth/RequireAuth";
 import RequireRole from "./auth/RequireRole";
 import AppLayout from "./layouts/AppLayout";
@@ -14,7 +15,7 @@ import ProductoraPage from "./pages/Producer";
 import EventPage from "./pages/Event";
 import AdminUsersPage from "./pages/AdminUsers";
 import DebugUser from "./pages/DebugUser";
-import Dashboard from "./pages/Inicio";
+import Dashboard from "./pages/Home";
 import MisEventosPage from "./pages/mis-eventos";
 import EventDetailPage from "./pages/EventDetail";
 import MiClubPage from "./pages/mi-club";
@@ -23,18 +24,58 @@ import RoleRequestPage from "./pages/RoleRequestPage";
 import ClubesAdmin from "./pages/ClubAdminDetail";
 import ClubAdmin from "./pages/ClubesAdmin";
 import ClubVer from "./pages/ClubVer";
+import ArtistsBrowse from "./pages/ArtistsBrowse";
+import ArtistDetail from "@/pages/ArtistDetail";
+import FavoritesPage from "./pages/MisFavoritos";
+import Inicio from "./pages/Inicio";
+import PaymentReturn from "@/pages/PaymentReturn";
+import AdminSales from "@/pages/AdminSales";
+import MisTickets from "@/pages/MisTickets";
+import CartPage from "./pages/CartPage";
 
 export default function AppRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
+    
       <Routes location={location} key={location.pathname}>
         <Route element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Inicio />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="clubes" element={<Home />} />
           <Route path="unauthorized" element={<Unauthorized />} />
+          <Route path="/checkin" element={<CheckIn />} />
+          {/* Listados públicos */}
+          <Route path="/eventos" element={<EventsBrowse />} />
+          <Route path="/artistas" element={<ArtistsBrowse />} />
+          <Route path="/favoritos" element={<FavoritesPage />} />
+          <Route path="/pago/retorno" element={<PaymentReturn />} />
+          {/* Detalles públicos:
+             - Soportan `/club/<nombre>-<id>` y `/club/<id>`
+             - Soportan `/evento/<nombre>-<id>` y `/evento/<id>`
+             Asegúrate de extraer el id en los componentes usando el último '-'
+          */}
+          <Route path="/club/:slugOrId" element={<ClubVer />} />
+          <Route path="/evento/:slugOrId" element={<EventDetailPage />} />
 
+          {/* Artistas ya usan slug puro */}
+          <Route path="/artistas/:slug" element={<ArtistDetail />} />
+
+   {/* Tickets  */}
+          <Route path="/mis-tickets" element={<MisTickets />} />
+
+<Route
+  path="/admin/ventas"
+  element={
+    <RequireAuth>
+      <RequireRole roles={["admin"]}>
+        <AdminSales />
+      </RequireRole>
+    </RequireAuth>
+  }
+/>
+
+          {/* Área autenticada */}
           <Route
             path="perfil"
             element={
@@ -43,6 +84,9 @@ export default function AppRoutes() {
               </RequireAuth>
             }
           />
+
+          {/* Esta ruta era tu “ClubVer” protegida sin parámetro.
+              La mantengo por compatibilidad si la usas internamente. */}
           <Route
             path="club"
             element={
@@ -62,7 +106,8 @@ export default function AppRoutes() {
               </RequireAuth>
             }
           />
-
+          <Route path="/evento/:slugOrId" element={<EventDetailPage />} />
+          <Route path="/carrito" element={<CartPage />} />
           <Route path="/solicitud-estado" element={<RoleRequestPage />} />
           <Route
             path="/solicitud-acceso"
@@ -131,11 +176,9 @@ export default function AppRoutes() {
           <Route
             path="/mis-eventos/:id"
             element={
-              <RequireAuth>
-                <RequireRole roles={["admin", "productor", "club_owner"]}>
+            
                   <EventDetailPage />
-                </RequireRole>
-              </RequireAuth>
+       
             }
           />
 
@@ -153,11 +196,9 @@ export default function AppRoutes() {
           <Route
             path="/miClub"
             element={
-              <RequireAuth>
-                <RequireRole roles={["admin"]}>
+            
                   <ClubAdmin />
-                </RequireRole>
-              </RequireAuth>
+         
             }
           />
 
@@ -176,6 +217,6 @@ export default function AppRoutes() {
           <Route path="/inicio" element={<Dashboard />} />
         </Route>
       </Routes>
-    </AnimatePresence>
+ 
   );
 }

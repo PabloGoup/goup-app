@@ -34,24 +34,24 @@ export default function ClubesAdmin() {
     fetchClubes();
   }, [dbUser]);
 
-  if (dbUser?.rol !== "admin") return <p className="p-6 text-white">Acceso denegado.</p>;
-  if (loading) return <p className="p-6 text-white">Cargando clubes…</p>;
+  if (dbUser?.rol !== "admin") return <p className="p-6 ">Acceso denegado.</p>;
+  if (loading) return <p className="p-6 ">Cargando clubes…</p>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-6xl mx-auto px-4 py-8 ">
       <h1 className="text-3xl font-bold mb-6">Todos los clubes</h1>
       <div className="grid md:grid-cols-2 gap-4">
         {clubes.map((club) => (
           <div
             key={club.id}
-            className="bg-white/5 border border-white/10 rounded-lg p-4 flex items-center justify-between"
+            className="bg-white/5 border /10 rounded-lg p-4 flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
               {club.imagen ? (
                 <img
                   src={club.imagen}
                   alt={club.nombre}
-                  className="w-16 h-16 object-cover rounded-full border border-white/20"
+                  className="w-16 h-16 object-cover rounded-full border /20"
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-xl">
@@ -60,7 +60,7 @@ export default function ClubesAdmin() {
               )}
               <div>
                 <p className="text-lg font-semibold">{club.nombre}</p>
-                <p className="text-sm text-white/60">
+                <p className="text-sm /60">
                   {[club.ciudad, club.pais].filter(Boolean).join(", ")}
                 </p>
               </div>

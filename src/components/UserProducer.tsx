@@ -92,10 +92,10 @@ export default function UserProducer() {
   }, [user, methods]);
 
   // Si aún no existe, mostramos botón de crear
-  if (loading) return <div className="text-white">Cargando mi productora…</div>;
+  if (loading) return <div className="">Cargando mi productora…</div>;
   if (!producer) {
     return (
-      <div className="text-white/80 bg-neutral-900/60 border border-white/10 rounded-xl p-6">
+      <div className="/80 bg-neutral-900/60 border /10 rounded-xl p-6">
         <p className="mb-4">Aún no has creado tu productora.</p>
         <Link
           to="/productora/crear"
@@ -169,7 +169,7 @@ export default function UserProducer() {
   if (!editMode) {
     return (
       <div className="max-w-5xl mx-auto">
-        <div className="relative bg-neutral-900 rounded-lg overflow-hidden border border-white/10 shadow-md">
+        <div className="relative bg-neutral-900 rounded-lg overflow-hidden border /10 shadow-md">
           <div className="px-6 pt-4 relative z-20">
             <div className="flex items-end justify-between">
               <div className="flex items-center gap-4">
@@ -186,9 +186,9 @@ export default function UserProducer() {
                     </div>
                   )}
                 </div>
-                <div className="text-white">
+                <div className="">
                   <h1 className="text-2xl font-extrabold">{producer.nombre}</h1>
-                  <p className="text-white/70 text-sm">
+                  <p className="/70 text-sm">
                     {producer.correo ?? "—"}{" "}
                     {producer.telefono ? `• ${producer.telefono}` : ""}
                   </p>
@@ -202,7 +202,7 @@ export default function UserProducer() {
               </button>
             </div>
           </div>
-          <div className="p-6 text-white grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-6  grid grid-cols-1 md:grid-cols-2 gap-4">
             <Info label="Correo" value={producer.correo ?? "—"} />
             <Info label="Teléfono" value={producer.telefono ?? "—"} />
           </div>
@@ -230,12 +230,12 @@ export default function UserProducer() {
               <RHFInput name="telefono" label="Teléfono" />
               <RHFInput name="correo" label="Correo" />
               <div>
-                <p className="text-white/70 text-sm mb-1">Logo actual</p>
-                <div className="h-40 w-full mb-2 bg-white/5 flex items-center justify-center border border-white/10">
+                <p className="/70 text-sm mb-1">Logo actual</p>
+                <div className="h-40 w-full mb-2 bg-white/5 flex items-center justify-center border /10">
                   {producer.imagen ? (
                     <img src={producer.imagen} alt="logo" className="h-full" />
                   ) : (
-                    <span className="text-white/40">Sin logo</span>
+                    <span className="/40">Sin logo</span>
                   )}
                 </div>
                 <RHFFile name="imagen" label="Reemplazar logo" />
@@ -245,7 +245,7 @@ export default function UserProducer() {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-4 py-2 rounded border border-white/20 hover:bg-white/10"
+                className="px-4 py-2 rounded border /20 hover:bg-white/10"
               >
                 Cancelar
               </button>
@@ -263,15 +263,15 @@ export default function UserProducer() {
 
       {confirmOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60">
-          <div className="bg-neutral-900 rounded-md p-6 max-w-md w-[90vw] text-center border border-white/10">
+          <div className="bg-neutral-900 rounded-md p-6 max-w-md w-[90vw] text-center border /10">
             <h3 className="text-lg font-semibold mb-2">¿Guardar los cambios?</h3>
-            <p className="text-white/70 mb-5">
+            <p className="/70 mb-5">
               Se actualizarán los datos de la productora.
             </p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="px-4 py-2 rounded border border-white/20 hover:bg-white/10"
+                className="px-4 py-2 rounded border /20 hover:bg-white/10"
               >
                 No
               </button>
@@ -292,9 +292,9 @@ export default function UserProducer() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-white/5 border border-white/10 px-3 py-2">
-      <p className="text-white/60 text-xs">{label}</p>
-      <p className="text-white break-words">{value}</p>
+    <div className="rounded-md bg-white/5 border /10 px-3 py-2">
+      <p className="/60 text-xs">{label}</p>
+      <p className=" break-words">{value}</p>
     </div>
   );
 }

@@ -1,0 +1,1034 @@
+// src/pages/EventDetail.tsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import {
+  RHFInput,
+  RHFSelect,
+  RHFTextarea,
+  RHFCheckboxGroup,
+  RHFFile,
+} from "@/components/form/control";
+import { LineupFields } from "@/components/form/LineupFields";
+
+import {
+  Firestore,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
+import { db as firebaseDb } from "@/lib/firebase";
+
+/* ===================== Helpers & Types ===================== */
+
+const asBool = (v: unknown): boolean => {
+  if (typeof v === "boolean") return v;
+  if (v == null) return false;
+  const s = String(v).toLowerCase();
+  return s === "si" || s === "sí" || s === "true" || s === "1";
+};
+const vipToCount = (v: unknown): number => {
+  const s = String(v ?? "");
+  if (s.toLowerCase() === "no" || s === "" || s === "0") return 0;
+  if (s.toLowerCase().includes("más de")) return 6;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
+const countToVipSelect = (n: number | null | undefined): string => {
+  if (!n || n <= 0) return "No";
+  if (n > 5) return "Más de 5";
+  return String(n);
+};
+const boolToSiNo = (b?: boolean | null) => (b ? "Sí" : "No");
+const normalizeGeneros = (g: string[] | string | null | undefined): string[] => {
+  if (Array.isArray(g)) return g;
+  if (typeof g === "string") {
+    const list = g.split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
+    return list.length ? list : g ? [g] : [];
+  }
+  return [];
+};
+const CLP = new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
+
+const fmtDateLong = (iso?: string | null) => {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("es", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+};
+const fmtDateShort = (iso?: string | null) => (iso ? new Date(iso).toLocaleString("es-CL") : "—");
+const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : "");
+const timeRange = (start?: string | null, end?: string | null) => {
+  const a = fmtTime(start);
+  const b = fmtTime(end);
+  if (a && b) return `${a} – ${b}`;
+  if (a) return a;
+  if (b) return b;
+  return "—";
+};
+
+// Links externos
+const googleMapsLink = (lat?: number | null, lng?: number | null, direccion?: string | null) => {
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  if (direccion) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+  }
+  return "#";
+};
+const wazeLink = (lat?: number | null, lng?: number | null, direccion?: string | null) => {
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes`;
+  }
+  if (direccion) {
+    return `https://waze.com/ul?q=${encodeURIComponent(direccion)}&navigate=yes`;
+  }
+  return "#";
+};
+
+/* -------- Firestore shapes (compatibilidad viejo/nuevo) -------- */
+type TicketTypeDoc = {
+  name: string;
+  price: number;
+  stockTotal: number;
+  stockDisponible: number;
+  perUserLimit: number | null;
+  orden: number;
+  activo: boolean;
+};
+
+type ClubDoc = {
+  nombre: string;
+  ciudad?: string | null;
+  pais?: string | null;
+  direccion?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+};
+
+type EventNew = {
+  uid_usersWeb: string;
+  nombre: string;
+  tipo: string;
+  fechaInicio: string | null; // ISO
+  fechaFin: string | null;    // ISO
+  clubId: string;
+  capacidad?: string | null;
+  presupuesto?: string | null;
+  promotor?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  descripcion?: string | null;
+  generos?: string[] | null;
+  edad?: number | null;
+  dress_code?: string | null;
+  tieneLineup?: boolean;
+  cantidadDJs?: number | null;
+  djs?: string[] | null;
+  flyer?: string | null;
+  imgSec?: string | null;
+  venderTickets?: boolean;
+  estado?: "publicado" | "draft" | "archivado";
+  moneda?: "CLP" | "USD";
+  perUserLimit?: number;
+  ventaAbre?: string | null;   // ISO
+  ventaCierra?: string | null; // ISO
+};
+
+type EventLegacy = {
+  id_evento?: string;
+  uid_usersWeb?: string;
+  nombre: string;
+  tipo: string;
+  fecha: string; // YYYY-MM-DD
+  horaInicio: string | null;
+  horaCierre: string | null;
+  capacidad: string | null;
+  presupuesto: string | null;
+  promotor: string | null;
+  telefono: string | null;
+  email: string | null;
+  desc: string | null;
+  generos: string[] | string | null;
+  edad: number | null;
+  dress_code?: string | null;
+  vip?: boolean | null;
+  cantidadZonasVip: number | null;
+  aceptaReservas: boolean | null;
+  lineup: boolean | null;
+  cantidadDJs: number | null;
+  djs: string[] | null;
+  flyer: string | null;
+  imgSec: string | null;
+};
+
+/* ===================== Form (modo edición legacy) ===================== */
+
+const editSchema = z.object({
+  nombre: z.string().min(1),
+  tipo: z.string().min(1),
+  fecha: z.string().min(1),
+  horaInicio: z.string().optional().or(z.literal("")),
+  horaCierre: z.string().optional().or(z.literal("")),
+  capacidad: z.string().min(1),
+  presupuesto: z.string().optional().or(z.literal("")),
+  promotor: z.string().min(1),
+  telefono: z.string().min(1),
+  email: z.string().email(),
+  desc: z.string().optional().or(z.literal("")),
+  generos: z.array(z.string()).optional().default([]),
+  edad: z.string().refine((val) => {
+    const num = Number(val);
+    return Number.isInteger(num) && num >= 18 && num <= 70;
+  }, { message: "Selecciona una edad válida" }),
+  dress_code: z.string().min(1),
+  tieneVip: z.string().optional().default("No"),
+  reservas: z.union([z.boolean(), z.string()]).default("No"),
+  tieneLineup: z.union([z.boolean(), z.string()]).default("No"),
+  djs: z.array(z.string()).optional().default([]),
+  flyer: z.any().optional().nullable(),
+  imgSec: z.any().optional().nullable(),
+  generosOtro: z.string().optional(),
+  cantidadDJs: z.number(),
+});
+type EditForm = z.infer<typeof editSchema>;
+
+/* ===================== UI pequeños ===================== */
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+      <h3 className="font-semibold text-[#cbb3ff] mb-3">{title}</h3>
+      <div className="space-y-2">{children}</div>
+    </section>
+  );
+}
+function KeyRow({ k, v }: { k: string; v?: React.ReactNode }) {
+  return (
+    <p className="text-sm /80 flex items-baseline justify-between gap-3">
+      <span className="/60">{k}</span>
+      <span className="text-right">{v ?? "—"}</span>
+    </p>
+  );
+}
+function Badge({ label }: { label: string }) {
+  return (
+    <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/20 text-[#e4d7ff] border border-[#8e2afc]/30">
+      {label}
+    </span>
+  );
+}
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xl font-bold text-[#cbb3ff]">{title}</h2>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+/* ——— Helper estado de compra por ticket ——— */
+function getTicketState(ev: EventNew | null | undefined, t: TicketTypeDoc) {
+  const now = Date.now();
+  const abre = ev?.ventaAbre ? new Date(ev.ventaAbre).getTime() : -Infinity;
+  const cierra = ev?.ventaCierra ? new Date(ev.ventaCierra).getTime() : Infinity;
+
+  const dentroDeVenta = now >= abre && now <= cierra;
+  const disponible = (t.stockDisponible ?? 0) > 0 && t.activo;
+  const vender = !!ev?.venderTickets;
+
+  const puedeComprar = vender && dentroDeVenta && disponible;
+
+  let badge: { label: string; tone: "ok" | "warn" | "off" } = { label: "Disponible", tone: "ok" };
+  if (!t.activo) badge = { label: "Inactivo", tone: "off" };
+  else if ((t.stockDisponible ?? 0) <= 0) badge = { label: "Agotado", tone: "off" };
+  else if (!dentroDeVenta) badge = { label: "Fuera de ventana", tone: "warn" };
+
+  return { puedeComprar, dentroDeVenta, disponible, badge };
+}
+
+/* ===================== Página ===================== */
+
+export default function EventDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  // Datos
+  const [eventNew, setEventNew] = useState<(EventNew & { id: string }) | null>(null);
+  const [eventLegacy, setEventLegacy] = useState<(EventLegacy & { id: string }) | null>(null);
+  const [club, setClub] = useState<ClubDoc | null>(null);
+  const [tickets, setTickets] = useState<TicketTypeDoc[]>([]);
+
+  const methods = useForm<EditForm>({
+    resolver: zodResolver(editSchema),
+    defaultValues: undefined,
+    mode: "onChange",
+  });
+  const originalValuesRef = useRef<EditForm | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // ---------- Carga segura con try/catch ----------
+  useEffect(() => {
+    if (!id) return;
+
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        // 1) Intentar nuevo esquema
+        const newRef = doc(firebaseDb as Firestore, "evento", id);
+        const newSnap = await getDoc(newRef);
+
+        if (newSnap.exists()) {
+          const ev = { id, ...(newSnap.data() as EventNew) };
+          if (!alive) return;
+          setEventNew(ev);
+
+          // Club (si existe)
+          if (ev.clubId) {
+            try {
+              const clubRef = doc(firebaseDb as Firestore, "club", ev.clubId);
+              const clubSnap = await getDoc(clubRef);
+              if (alive && clubSnap.exists()) setClub(clubSnap.data() as ClubDoc);
+            } catch (e) {
+              console.warn("No se pudo cargar el club:", e);
+            }
+          }
+
+          // Tickets (si vende)
+          if (ev.venderTickets) {
+            try {
+              const tSnap = await getDocs(collection(firebaseDb as Firestore, `evento/${id}/ticketTypes`));
+              if (alive) {
+                const list = tSnap.docs
+                  .map((d) => d.data() as TicketTypeDoc)
+                  .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+                setTickets(list);
+              }
+            } catch (e) {
+              console.warn("No se pudieron cargar los tickets:", e);
+            }
+          }
+
+          return; // listo (nuevo)
+        }
+
+        // 2) Compat: legacy (si tu colección legacy fue "Eventos", ajusta aquí)
+        const oldRef = doc(firebaseDb as Firestore, "evento", id);
+        const oldSnap = await getDoc(oldRef);
+
+        if (oldSnap.exists()) {
+          const data = oldSnap.data() as EventLegacy;
+          if (!alive) return;
+          setEventLegacy({ id, ...data });
+
+          // defaults para el form (legacy)
+          const lineupString =
+            data.lineup || (Array.isArray(data.djs) && data.djs.length > 0) ? "Sí" : "No";
+          const edadString = data.edad != null ? String(data.edad) : "18";
+          const genArr = normalizeGeneros(data.generos);
+
+          const defaults: EditForm = {
+            nombre: data.nombre,
+            tipo: data.tipo,
+            fecha: data.fecha,
+            horaInicio: data.horaInicio ?? "",
+            horaCierre: data.horaCierre ?? "",
+            capacidad: data.capacidad ?? "",
+            presupuesto: data.presupuesto ?? "",
+            promotor: data.promotor ?? "",
+            telefono: data.telefono ?? "",
+            email: data.email ?? "",
+            desc: data.desc ?? "",
+            generos: genArr,
+            edad: edadString,
+            dress_code: data.dress_code ?? "",
+            tieneVip: countToVipSelect(data.cantidadZonasVip),
+            reservas: boolToSiNo(data.aceptaReservas),
+            tieneLineup: lineupString,
+            djs: Array.isArray(data.djs) ? data.djs : [],
+            flyer: "",
+            imgSec: "",
+            generosOtro: "",
+            cantidadDJs: Number(data.cantidadDJs ?? 0),
+          };
+          methods.reset(defaults);
+          originalValuesRef.current = defaults;
+          return; // listo (legacy)
+        }
+
+        toast.error("No se encontró el evento.");
+      } catch (err) {
+        console.error("Error cargando evento:", err);
+        toast.error("No se pudo cargar el evento.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // ---------- Derivados para UI ----------
+  const isNew = !!eventNew;
+  const flyer = (eventNew?.flyer ?? eventLegacy?.flyer) || null;
+  const imgSec = (eventNew?.imgSec ?? eventLegacy?.imgSec) || null;
+  const nombre = eventNew?.nombre ?? eventLegacy?.nombre ?? "Evento";
+  const tipo = eventNew?.tipo ?? eventLegacy?.tipo ?? "—";
+  const generos = eventNew?.generos ?? normalizeGeneros(eventLegacy?.generos);
+  const edad = eventNew?.edad ?? eventLegacy?.edad ?? 18;
+  const dressCode = eventNew?.dress_code ?? eventLegacy?.dress_code ?? "—";
+  const desc = eventNew?.descripcion ?? eventLegacy?.desc ?? "";
+
+  // Fechas/horarios (tolerantes)
+  const startISO =
+    eventNew?.fechaInicio ??
+    (eventLegacy ? `${eventLegacy.fecha}T${eventLegacy.horaInicio ?? "00:00"}:00` : null);
+  const endISO =
+    eventNew?.fechaFin ??
+    (eventLegacy ? `${eventLegacy.fecha}T${eventLegacy.horaCierre ?? "00:00"}:00` : null);
+
+  const isPast = useMemo(() => {
+    const end = endISO ?? startISO;
+    return end ? Date.now() > new Date(end).getTime() : false;
+  }, [startISO, endISO]);
+
+  const horariosLegacy = eventLegacy ? timeRange(eventLegacy.horaInicio, eventLegacy.horaCierre) : null;
+
+  // ---------- Acciones edición (modo legado) ----------
+  const selectedGeneros = useWatch({ name: "generos", control: methods.control });
+  const showOtroGenero = selectedGeneros?.includes("Otros") ?? false;
+
+  const uploadImage = async (file: File | null, folder: string): Promise<string | null> => {
+    if (!file) return null;
+    const storage = getStorage();
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `evento/${id}/${folder}/${Date.now()}.${ext}`;
+    const ref = storageRef(storage, path);
+    await uploadBytes(ref, file);
+    return getDownloadURL(ref);
+  };
+
+  const onConfirmSave = async (values: EditForm) => {
+    if (!eventLegacy) {
+      toast.error("La edición rápida solo está habilitada para eventos del esquema anterior.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const newFlyer = values.flyer instanceof File ? await uploadImage(values.flyer, "flyer") : null;
+      const newImgSec = values.imgSec instanceof File ? await uploadImage(values.imgSec, "imgSec") : null;
+
+      let generosFinal = [...(values.generos ?? [])];
+      if (values.generos.includes("Otros") && values.generosOtro?.trim()) {
+        generosFinal = generosFinal.filter((g) => g !== "Otros");
+        generosFinal.push(values.generosOtro.trim());
+      }
+
+      const payload: Partial<EventLegacy> = {
+        nombre: values.nombre,
+        tipo: values.tipo,
+        fecha: values.fecha,
+        horaInicio: values.horaInicio || null,
+        horaCierre: values.horaCierre || null,
+        capacidad: values.capacidad,
+        presupuesto: values.presupuesto || null,
+        promotor: values.promotor,
+        telefono: values.telefono,
+        email: values.email,
+        desc: values.desc || null,
+        generos: generosFinal,
+        edad: Number(values.edad),
+        dress_code: values.dress_code,
+        cantidadZonasVip: vipToCount(values.tieneVip),
+        aceptaReservas: asBool(values.reservas),
+        lineup: values.tieneLineup === "Sí",
+        cantidadDJs: Number(values.cantidadDJs),
+        djs: values.djs,
+        flyer: newFlyer ?? eventLegacy.flyer ?? null,
+        imgSec: newImgSec ?? eventLegacy.imgSec ?? null,
+      };
+
+      const docRef = doc(firebaseDb as Firestore, "evento", eventLegacy.id_evento || id!);
+      await updateDoc(docRef, payload);
+
+      toast.success("Datos guardados");
+      setEventLegacy({ ...(eventLegacy as any), ...payload });
+      setEditMode(false);
+      setConfirmOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "No se pudo guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(firebaseDb as Firestore, "evento", id!));
+      toast.success("Evento eliminado");
+      setConfirmDeleteOpen(false);
+      navigate("/mis-eventos");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "No se pudo eliminar el evento");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /* ===================== Render ===================== */
+
+  if (loading) return <div className="p-6 ">Cargando…</div>;
+  if (!eventNew && !eventLegacy) {
+    return (
+      <div className="p-6 ">
+        <p>No se encontró el evento.</p>
+        <Link to="/mis-eventos" className="text-[#8e2afc] underline">Volver a mis eventos</Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="">
+      {/* HERO */}
+      <div className="relative w-full h-[320px] md:h-[420px] overflow-hidden">
+        {flyer ? (
+          <>
+            <img src={flyer} alt="Flyer" className="absolute w-full h-full object-cover scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#8e2afc]" />
+        )}
+        <div className="relative h-full max-w-6xl mx-auto px-4 flex flex-col justify-end pb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className={`text-xs px-2 py-1 rounded border ${
+                isPast
+                  ? "bg-white/10 /20 /80"
+                  : "bg-[#8e2afc]/30 border-[#8e2afc]/50 text-[#e4d7ff]"
+              }`}
+            >
+              {isPast ? "Realizado" : "Próximo"}
+            </span>
+            {!!dressCode && (
+              <span className="text-xs px-2 py-1 rounded bg-[#151515]/80 border /10">
+                Dress code: {dressCode}
+              </span>
+            )}
+            {!!edad && (
+              <span className="text-xs px-2 py-1 rounded bg-[#151515]/80 border /10">
+                +{edad}
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl md:text-4xl font-extrabold drop-shadow">{nombre}</h1>
+          <p className=" mt-1">
+            {fmtDateLong(startISO ?? (eventLegacy ? `${eventLegacy.fecha}T00:00:00` : null))}
+            {" • "}
+            {isNew ? `${fmtDateShort(startISO)} – ${fmtDateShort(endISO)}` : (horariosLegacy ?? "—")}
+          </p>
+          {generos && generos.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {generos.map((g) => (
+                <span key={g} className="text-xs px-2 py-1 rounded bg-[#8e2afc]/40 text-[#e3d6ff] border border-[#8e2afc]/30">
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CTA editar / borrar */}
+      <div className="max-w-6xl mx-auto px-4 py-6 flex gap-3">
+        <button
+          type="button"
+          onClick={() => setEditMode(true)}
+          className="px-4 py-2 rounded-md bg-[#8e2afc]/40 hover:bg-[#7b1fe0] transition"
+        >
+          Editar datos
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmDeleteOpen(true)}
+          className="px-4 py-2 rounded-md bg-rose-600/70 hover:bg-rose-500 transition"
+        >
+          Eliminar evento
+        </button>
+      </div>
+
+      {/* CONTENIDO */}
+      <div className="max-w-6xl mx-auto px-4 pb-10">
+        {!editMode && (
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Columna principal */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Localidad */}
+              <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-lg font-bold text-[#cbb3ff]">Localidad</h2>
+                  {club && (
+                    <div className="flex gap-2">
+                      <a
+                        href={googleMapsLink(club.latitud, club.longitud, club.direccion)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs font-semibold"
+                      >
+                        Google Maps
+                      </a>
+                      <a
+                        href={wazeLink(club.latitud, club.longitud, club.direccion)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs font-semibold"
+                      >
+                        Waze
+                      </a>
+                    </div>
+                  )}
+                </div>
+                {club ? (
+                  <div className="space-y-1">
+                    <p className=" font-semibold">{club.nombre}</p>
+                    <p className="/80 text-sm">
+                      {[club.direccion, club.ciudad, club.pais].filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="/60 text-sm">Sin localidad asociada.</p>
+                )}
+              </section>
+
+              {/* Entradas (con lógica de ventana/stock) */}
+              <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-[#cbb3ff]">Entradas</h2>
+                  {eventNew?.venderTickets ? (
+                    <span className="text-xs /60">
+                      Tope por usuario: {eventNew?.perUserLimit ?? 0}
+                    </span>
+                  ) : null}
+                </div>
+
+                {!eventNew?.venderTickets ? (
+                  <p className="/70 mt-2 text-sm">
+                    Este evento no vende tickets a través de la plataforma.
+                  </p>
+                ) : (
+                  <>
+                    <div className="text-sm /70 mt-1">
+                      {eventNew.ventaAbre && <span>Venta abre: {fmtDateShort(eventNew.ventaAbre)}</span>}
+                      {eventNew.ventaAbre && eventNew.ventaCierra && <span> • </span>}
+                      {eventNew.ventaCierra && <span>Venta cierra: {fmtDateShort(eventNew.ventaCierra)}</span>}
+                    </div>
+
+                    {tickets.length === 0 ? (
+                      <p className="/60 text-sm mt-2">Aún no hay tipos de ticket definidos.</p>
+                    ) : (
+                      <ul className="mt-4 grid gap-3">
+                        {tickets.map((t, idx) => {
+                          const { puedeComprar, badge } = getTicketState(eventNew, t);
+
+                          const badgeCls =
+                            badge.tone === "ok"
+                              ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
+                              : badge.tone === "warn"
+                              ? "bg-amber-500/15 border-amber-400/30 text-amber-300"
+                              : "bg-white/10 /15 /70";
+
+                          return (
+                            <li
+                              key={`${t.name}-${idx}`}
+                              className="rounded-lg border /10 bg-white/[0.04] p-4 flex items-center gap-4"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold">{t.name}</p>
+                                <p className="text-sm /70">
+                                  Precio: {CLP.format(t.price || 0)} • Disponibles:{" "}
+                                  {Math.max(0, t.stockDisponible ?? 0)}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs px-2 py-1 rounded border ${badgeCls}`}>
+                                  {badge.label}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  disabled={!puedeComprar}
+                                  title={!puedeComprar ? "Fuera de ventana de venta o sin stock" : ""}
+                                  className={`px-3 py-1.5 rounded-md /90 ${
+                                    puedeComprar
+                                      ? "bg-[#8e2afc] hover:bg-[#7b1fe0]"
+                                      : "bg-[#8e2afc]/60 disabled:opacity-60 cursor-not-allowed"
+                                  }`}
+                                  onClick={() => {
+                                    if (!puedeComprar) return;
+                                    // TODO: integrar checkout real
+                                    // navigate(`/checkout/${id}?ticket=${encodeURIComponent(t.name)}`);
+                                    toast.success("Demo: aquí iría el flujo de compra");
+                                  }}
+                                >
+                                  Comprar
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </section>
+
+              {/* Descripción */}
+              {desc && (
+                <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+                  <h2 className="text-lg font-bold text-[#cbb3ff] mb-2">Descripción</h2>
+                  <p className="/80 leading-relaxed">{desc}</p>
+                </section>
+              )}
+
+              {/* Line-up */}
+              <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-[#cbb3ff]">Line-up</h2>
+                <span className="text-xs /60">
+                  {(eventNew?.tieneLineup ?? eventLegacy?.lineup) ? "Con line-up" : "Sin line-up"}
+                </span>
+                </div>
+                {((eventNew?.djs && eventNew.djs.length > 0) ||
+                  (eventLegacy?.djs && eventLegacy.djs.length > 0)) ? (
+                  <ul className="mt-3 grid sm:grid-cols-2 gap-2">
+                    {(eventNew?.djs ?? eventLegacy?.djs ?? []).map((dj, i) => (
+                      <li
+                        key={`${dj}-${i}`}
+                        className="px-3 py-2 rounded border /10 bg-white/5 text-sm flex items-center gap-2"
+                      >
+                        <span className="inline-flex w-6 h-6 rounded-full bg-[#8e2afc]/30 border border-[#8e2afc]/50 text-center items-center justify-center text-xs">
+                          {i + 1}
+                        </span>
+                        <span className="truncate">{dj}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="/60 mt-2 text-sm">No se registraron DJs.</p>
+                )}
+              </section>
+
+              {/* Galería */}
+              <section className="rounded-xl border /10 bg-white/[0.03] backdrop-blur p-5">
+                <h2 className="text-lg font-bold text-[#cbb3ff] mb-3">Galería</h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <figure className="rounded-lg overflow-hidden border /10">
+                    {flyer ? (
+                      <img src={flyer} className="w-full h-64 object-cover" alt="Flyer" />
+                    ) : (
+                      <div className="w-full h-64 grid place-items-center /40 bg-white/5">Sin flyer</div>
+                    )}
+                  </figure>
+                  <figure className="rounded-lg overflow-hidden border /10">
+                    {imgSec ? (
+                      <img src={imgSec} className="w-full h-64 object-cover" alt="Imagen secundaria" />
+                    ) : (
+                      <div className="w-full h-64 grid place-items-center /40 bg-white/5">Sin imagen secundaria</div>
+                    )}
+                  </figure>
+                </div>
+              </section>
+            </div>
+
+            {/* Columna lateral */}
+            <aside className="space-y-6">
+              <Card title="Resumen">
+                <KeyRow k="Tipo" v={tipo} />
+                <KeyRow k="Fecha" v={fmtDateLong(startISO ?? (eventLegacy ? `${eventLegacy.fecha}T00:00:00` : null))} />
+                <KeyRow
+                  k="Horario"
+                  v={isNew ? `${fmtDateShort(startISO)} – ${fmtDateShort(endISO)}` : (horariosLegacy ?? "—")}
+                />
+                <KeyRow k="Capacidad" v={eventNew?.capacidad ?? eventLegacy?.capacidad ?? "—"} />
+                {(eventNew?.presupuesto || eventLegacy?.presupuesto) && (
+                  <KeyRow k="Presupuesto" v={eventNew?.presupuesto ?? eventLegacy?.presupuesto ?? "—"} />
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Badge label={`+${edad ?? 18}`} />
+                  <Badge label={`Dress code: ${dressCode || "—"}`} />
+                </div>
+              </Card>
+
+              <Card title="Políticas">
+                <KeyRow
+                  k="Line-up"
+                  v={
+                    (eventNew?.tieneLineup ?? eventLegacy?.lineup)
+                      ? `Sí • ${(eventNew?.cantidadDJs ?? eventLegacy?.cantidadDJs) ?? 0} DJ(s)`
+                      : "No"
+                  }
+                />
+                {typeof eventLegacy?.aceptaReservas === "boolean" && (
+                  <KeyRow k="Reservas" v={eventLegacy.aceptaReservas ? "Sí" : "No"} />
+                )}
+              </Card>
+
+              {eventNew?.venderTickets && (
+                <Card title="Venta">
+                  <KeyRow k="Moneda" v={eventNew.moneda ?? "CLP"} />
+                  <KeyRow k="Tope por usuario" v={String(eventNew.perUserLimit ?? 0)} />
+                  <KeyRow k="Abre" v={fmtDateShort(eventNew.ventaAbre)} />
+                  <KeyRow k="Cierra" v={fmtDateShort(eventNew.ventaCierra)} />
+                </Card>
+              )}
+
+              <Card title="Contacto">
+                <KeyRow k="Promotor" v={eventNew?.promotor ?? eventLegacy?.promotor ?? "—"} />
+                <KeyRow
+                  k="Teléfono"
+                  v={
+                    (eventNew?.telefono ?? eventLegacy?.telefono)
+                      ? <a href={`tel:${eventNew?.telefono ?? eventLegacy?.telefono}`} className="text-[#cbb3ff] hover:underline">{eventNew?.telefono ?? eventLegacy?.telefono}</a>
+                      : "—"
+                  }
+                />
+                <KeyRow
+                  k="Email"
+                  v={
+                    (eventNew?.email ?? eventLegacy?.email)
+                      ? <a href={`mailto:${eventNew?.email ?? eventLegacy?.email}`} className="text-[#cbb3ff] hover:underline">{eventNew?.email ?? eventLegacy?.email}</a>
+                      : "—"
+                  }
+                />
+              </Card>
+            </aside>
+          </div>
+        )}
+
+        {/* ==================== EDICIÓN (modo legado) ==================== */}
+        {editMode && (
+          <FormProvider {...methods}>
+            <form
+              ref={formRef}
+              onSubmit={methods.handleSubmit(() => setConfirmOpen(true))}
+              className="space-y-6 mt-2"
+              noValidate
+            >
+              {/* Peligro */}
+              <section className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
+                <h3 className="text-sm font-semibold text-rose-300 mb-1">Zona peligrosa</h3>
+                <p className="/70 text-sm mb-3">
+                  Eliminar este evento es <b>irreversible</b>. Se borrarán sus datos y no hay vuelta atrás.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded bg-rose-600 hover:bg-rose-500  disabled:opacity-60"
+                  >
+                    {deleting ? "Eliminando…" : "Eliminar evento"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditMode(false)}
+                    className="px-4 py-2 rounded border /20 hover:bg-white/10"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </section>
+
+              <Section title="Información del Evento">
+                <RHFInput name="nombre" label="Nombre del Evento *" placeholder="Ej: PURPLE NIGHTS • MIDNIGHT VIBES" />
+                <RHFSelect
+                  name="tipo"
+                  label="Tipo de Evento *"
+                  options={["Club", "Festival", "After", "Privado", "Open Air", "Bar"]}
+                  placeholder="Selecciona el tipo"
+                />
+              </Section>
+
+              <Section title="Fecha & Horario">
+                <RHFInput name="fecha" type="date" label="Fecha del Evento *" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <RHFInput name="horaInicio" type="time" label="Hora de Inicio *" />
+                  <RHFInput name="horaCierre" type="time" label="Hora de Cierre *" />
+                </div>
+              </Section>
+
+              <Section title="Capacidad & Contacto">
+                <RHFSelect
+                  name="capacidad"
+                  label="Capacidad esperada *"
+                  options={["0 a 200", "201 a 500", "501 a 1000", "1001 a 2000", "Más de 2000"]}
+                  placeholder="Selecciona una opción"
+                />
+                <RHFInput name="promotor" label="Nombre del Promotor *" placeholder="Tu nombre o nombre artístico" />
+                <RHFInput name="telefono" label="WhatsApp/Teléfono *" placeholder="+56 9 1234 5678" />
+                <RHFInput name="email" type="email" label="Email *" placeholder="promotor@goup.com" />
+                <RHFInput name="presupuesto" label="Presupuesto (opcional)" placeholder="USD/CLP/etc." />
+              </Section>
+
+              <Section title="Concepto & Experiencia">
+                <RHFTextarea
+                  name="desc"
+                  label="Describe la atmósfera, música, efectos especiales, dress code, etc. *"
+                  rows={5}
+                  placeholder="Género musical, DJ lineup, luces, máquinas de humo, dress code, ..."
+                />
+                <RHFCheckboxGroup
+                  name="generos"
+                  label="Géneros musicales (puedes elegir varios) *"
+                  options={[
+                    "Reguetón","Techno","House","Pop","Salsa","Hardstyle","Trance","Hip-Hop","Urbano","Guaracha","Otros",
+                  ]}
+                />
+                {showOtroGenero && (
+                  <RHFInput
+                    name="generosOtro"
+                    label="Especifica el otro género musical"
+                    placeholder="Ej: Funk Carioca, Experimental, Indie, etc."
+                  />
+                )}
+              </Section>
+
+              <Section title="Imágenes">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="/70 text-sm mb-2">Flyer actual</div>
+                    <div className="rounded overflow-hidden border /10 mb-3">
+                      {eventLegacy?.flyer ? (
+                        <img src={eventLegacy.flyer} alt="Flyer actual" className="w-full h-48 object-cover" />
+                      ) : (
+                        <div className="w-full h-48 bg-white/10 grid place-items-center /40">Sin flyer</div>
+                      )}
+                    </div>
+                    <RHFFile name="flyer" label="Reemplazar flyer (opcional)" />
+                  </div>
+                  <div>
+                    <div className="/70 text-sm mb-2">Imagen secundaria actual</div>
+                    <div className="rounded overflow-hidden border /10 mb-3">
+                      {eventLegacy?.imgSec ? (
+                        <img src={eventLegacy.imgSec} alt="Imagen secundaria actual" className="w-full h-48 object-cover" />
+                      ) : (
+                        <div className="w-full h-48 bg-white/10 grid place-items-center /40">Sin imagen secundaria</div>
+                      )}
+                    </div>
+                    <RHFFile name="imgSec" label="Reemplazar imagen secundaria (opcional)" />
+                  </div>
+                </div>
+              </Section>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMode(false)}
+                  className="px-4 py-2 rounded border /20 hover:bg-white/10"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0] disabled:opacity-60"
+                  onClick={() => setSaving(true)}
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            </form>
+          </FormProvider>
+        )}
+
+        {/* Confirm guardar */}
+        {confirmOpen && (
+          <div className="fixed z-50 inset-0 grid place-items-center bg-black/60">
+            <div className="bg-neutral-900 rounded-md p-6 w-[92vw] max-w-md text-center border /10">
+              <h3 className="text-lg font-semibold mb-2">¿Guardar los cambios?</h3>
+              <p className="/70 mb-5">Se actualizarán los datos del evento.</p>
+              <div className="flex justify-center gap-3">
+                <button
+                  className="px-4 py-2 rounded border /20 hover:bg-white/10"
+                  onClick={() => { setConfirmOpen(false); setSaving(false); }}
+                >
+                  No
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0]"
+                  disabled={saving}
+                  onClick={methods.handleSubmit(onConfirmSave)}
+                >
+                  Sí, guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm borrar */}
+        {confirmDeleteOpen && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/70">
+            <div className="bg-neutral-900 rounded-md p-6 w-[92vw] max-w-md text-center border border-rose-500/30">
+              <h3 className="text-lg font-semibold text-rose-300 mb-2">¿Borrar este evento?</h3>
+              <p className="/70 mb-5">Esta acción es <b>permanente</b> y no hay vuelta atrás.</p>
+              <div className="flex justify-center gap-3">
+                <button
+                  className="px-4 py-2 rounded border /20 hover:bg-white/10"
+                  onClick={() => setConfirmDeleteOpen(false)}
+                  disabled={deleting}
+                >
+                  No, cancelar
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-rose-600 hover:bg-rose-500 disabled:opacity-60"
+                  onClick={onConfirmDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Eliminando…" : "Sí, borrar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

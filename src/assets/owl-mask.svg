@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mask asset: white = keep purple; black = carve/transparent -->
+  <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+  <!-- Headphones band -->
+  <path d="M256 336 C256 250, 768 250, 768 336" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+  <!-- Ear pads -->
+  <path d="M210 464 C210 410, 270 410, 270 464" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+  <path d="M754 464 C754 410, 814 410, 814 464" stroke="black" stroke-width="70" stroke-linecap="round" fill="none"/>
+
+  <!-- Binoculars (two big rings) -->
+  <circle cx="384" cy="480" r="150" stroke="black" stroke-width="80" fill="none" />
+  <circle cx="640" cy="480" r="150" stroke="black" stroke-width="80" fill="none" />
+  <!-- Bridge between binoculars -->
+  <rect x="480" y="440" width="64" height="80" rx="32" fill="black"/>
+
+  <!-- Pupils (small rings) -->
+  <circle cx="384" cy="480" r="20" stroke="black" stroke-width="40" fill="none" />
+  <circle cx="640" cy="480" r="20" stroke="black" stroke-width="40" fill="none" />
+
+  <!-- Cheek/wing accents -->
+  <path d="M320 704 C320 640, 320 640, 360 560" stroke="black" stroke-width="60" stroke-linecap="round" fill="none"/>
+  <path d="M704 704 C704 640, 704 640, 664 560" stroke="black" stroke-width="60" stroke-linecap="round" fill="none"/>
+
+  <!-- Beak -->
+  <path d="M512 570 L548 610 L476 610 Z" fill="black"/>
+
+  <!-- Smile -->
+  <path d="M472 668 C512 712, 552 668, 552 668" stroke="black" stroke-width="40" stroke-linecap="round" fill="none"/>
+
+  <!-- Feet -->
+  <path d="M408 820 Q392 860 376 820 Q392 840 408 860" stroke="black" stroke-width="36" stroke-linecap="round" fill="none"/>
+  <path d="M616 820 Q600 860 584 820 Q600 840 616 860" stroke="black" stroke-width="36" stroke-linecap="round" fill="none"/>
+</svg>

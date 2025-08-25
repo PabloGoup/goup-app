@@ -1,9 +1,15 @@
 // src/pages/LoginPage.tsx
+
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { roleHome } from "@/auth/roleHome";
 import { FcGoogle } from "react-icons/fc";
+import HeroVideo from "./HeroVideo";
+import Beneficios from "@/components/home/Beneficios";
+import MicroFeatures from "@/components/home/MicroFeatures";
+import PartnersStrip from "@/components/home/PartnersStrip";
+import Testimonios from "@/components/home/Testimonios";
 // Carga el logo de forma que Vite lo incluya correctamente en el build
 const logoUrl = new URL("../assets/goup_logo.png", import.meta.url).href;
 
@@ -25,14 +31,20 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
+    
     <main className="">
       <header className="max-w-md mx-auto flex flex-col items-center space-y-6 text-center">
-        <img src={logoUrl} alt="GoUp" className="w-28" />
+      <h1 className="text-3xl font-extrabold">
+          </h1>
+          <h1 className="text-3xl font-extrabold">
+          </h1>
+          <h1 className="text-3xl font-extrabold">
+          </h1>
         <div>
           <h1 className="text-3xl font-extrabold">
             CONÉCTATE <span className="text-[#8e2afc]">Y</span> REGÍSTRATE
           </h1>
-          <p className="text-white/70">CON NOSOTROS</p>
+          <p className="/70">CON NOSOTROS</p>
         </div>
         <button
           onClick={signInWithGoogle}
@@ -42,6 +54,24 @@ export default function LoginPage() {
           <span className="text-sm font-medium">Continuar con Google</span>
         </button>
       </header>
+
+
+       <HeroVideo />
+            <section className="max-w-6xl mx-auto px-4 py-10">
+              <Beneficios />
+            </section>
+      
+            <section className="max-w-6xl mx-auto px-4 py-10">
+              <MicroFeatures />
+            </section>
+      
+            <section className="max-w-6xl mx-auto px-4 py-10">
+              <PartnersStrip />
+            </section>
+      
+            <section className="max-w-6xl mx-auto px-4 py-10">
+              <Testimonios />
+            </section>
     </main>
   );
 }

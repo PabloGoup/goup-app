@@ -18,12 +18,12 @@ export default function ModalConfirm({
 }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60">
-      <div className="bg-neutral-900 rounded-md p-6 w-[90vw] max-w-sm text-center border border-white/10">
+      <div className="bg-neutral-900 rounded-md p-6 w-[90vw] max-w-sm text-center border /10">
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <p className="text-white/70 mb-5">{description}</p>
+        <p className="/70 mb-5">{description}</p>
         <div className="flex justify-center gap-3">
           <button
-            className="px-4 py-2 rounded border border-white/20 hover:bg-white/10"
+            className="px-4 py-2 rounded border /20 hover:bg-white/10"
             onClick={onCancel}
             disabled={loading}
           >

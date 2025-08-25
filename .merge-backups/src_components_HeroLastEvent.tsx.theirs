@@ -1,0 +1,69 @@
+import { useEffect, useState } from "react";
+import { getDocs, collection } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useNavigate } from "react-router-dom";
+
+type EventData = {
+  id: string;
+  nombre: string;
+  flyer: string;
+};
+
+export default function HeroLastEvent() {
+  const [eventos, setEventos] = useState<EventData[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchEventos = async () => {
+      const querySnapshot = await getDocs(collection(db, "evento"));
+      const eventosData: EventData[] = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        nombre: doc.data().nombre,
+        flyer: doc.data().flyer,
+      }));
+      setEventos(eventosData);
+    };
+
+    fetchEventos();
+  }, []);
+
+  // Cambia el evento con animación fade
+  useEffect(() => {
+    if (eventos.length === 0) return;
+
+    const interval = setInterval(() => {
+      setFade(false); // empieza a ocultar
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % eventos.length);
+        setFade(true); // vuelve a mostrar
+      }, 1000); // duración del fade-out
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [eventos]);
+
+  const currentEvent = eventos[currentIndex];
+  if (!currentEvent) return null;
+
+  return (
+    <div
+      className={`relative h-[300px] sm:h-[400px] md:h-[500px] w-full cursor-pointer transition-opacity duration-500 ${
+        fade ? "opacity-100" : "opacity-0"
+      }`}
+      onClick={() => navigate(`/mis-eventos/${currentEvent.id}`)}
+    >
+      <img
+        src={currentEvent.flyer}
+        alt={currentEvent.nombre}
+        className="w-full h-full object-cover absolute inset-0"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20 flex items-end px-6 pb-4 z-10">
+        <h1 className=" text-2xl md:text-4xl font-bold">
+          {currentEvent.nombre}
+        </h1>
+      </div>
+    </div>
+  );
+}

@@ -32,7 +32,7 @@ export default function MapView({ lat, lng, height = 200, zoom = 16 }: Props) {
         className="rounded border border-[#8e2afc]/30 bg-white/[0.03]"
         style={{ height }}
       >
-        <div className="h-full w-full grid place-items-center text-white/60">
+        <div className="h-full w-full grid place-items-center /60">
           Cargando mapa…
         </div>
       </div>

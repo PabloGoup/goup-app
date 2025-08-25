@@ -1,3 +1,8 @@
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+
+
 export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -9,3 +14,8 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
   
     return R * 2 * Math.asin(Math.sqrt(a));
   }
+
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}

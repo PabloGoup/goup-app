@@ -4,10 +4,10 @@ import { useAuth } from "@/auth/AuthContext";
 export default function DebugUser() {
   const { user, dbUser, rol, loading } = useAuth();
 
-  if (loading) return <p className="text-white">Cargando contexto de autenticación…</p>;
+  if (loading) return <p className="">Cargando contexto de autenticación…</p>;
 
   return (
-    <div className="p-6 bg-neutral-900 text-white rounded-md">
+    <div className="p-6 bg-neutral-900  rounded-md">
       <h2 className="text-2xl font-semibold mb-4">🔍 Debug Firebase Auth & Firestore</h2>
       <div className="mb-4">
         <strong>Firebase Auth User:</strong>

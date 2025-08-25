@@ -11,6 +11,8 @@ import { db as firebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "react-hot-toast";
 import Unauthorized from "./Unauthorized";
+import { getStorage, ref, updateMetadata } from "firebase/storage";
+
 
 
 /** Tipos */
@@ -411,14 +413,23 @@ export default function AdminUsersPage() {
 
   if (authLoading || loading) {
     return (
-      <main className="bg-black text-white px-4 py-16">
+      <main className="bg-black  px-4 py-16">
         <div className="max-w-5xl mx-auto">Cargando…</div>
       </main>
     );
   }
+  async function fijarCacheAvatar(downloadUrl: string) {
+    // downloadUrl tiene forma .../o/avatars%2F<uid>%2F<file>.jpg?alt=media&token=...
+    // Puedes construir el ref con la ruta que guardaste al subir.
+    const storage = getStorage();
+    // Si solo tienes el downloadUrl, sirve crear un ref por ruta absoluta /avatars/...
+    // Asumiendo que también guardas la 'ruta' en DB (recomendado).
+    const r = ref(storage, /* "avatars/<uid>/<file>.jpg" */);
+    await updateMetadata(r, { cacheControl: "public, max-age=31536000, immutable" });
+  }
 
   return (
-    <main className="text-white px-4 py-16">
+    <main className=" px-4 py-16">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -434,12 +445,12 @@ export default function AdminUsersPage() {
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             {/* Tabs de vista */}
-            <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+            <div className="inline-flex rounded-md border /10 overflow-hidden">
               <button
                 className={`px-3 py-1.5 text-sm ${
                   viewMode === "active"
-                    ? "bg-white/10 text-white"
-                    : "text-white/70 hover:bg-white/5"
+                    ? "bg-white/10 "
+                    : "/70 hover:bg-white/5"
                 }`}
                 onClick={() => setViewMode("active")}
               >
@@ -448,8 +459,8 @@ export default function AdminUsersPage() {
               <button
                 className={`px-3 py-1.5 text-sm ${
                   viewMode === "disabled"
-                    ? "bg-white/10 text-white"
-                    : "text-white/70 hover:bg-white/5"
+                    ? "bg-white/10 "
+                    : "/70 hover:bg-white/5"
                 }`}
                 onClick={() => setViewMode("disabled")}
               >
@@ -458,8 +469,8 @@ export default function AdminUsersPage() {
               <button
                 className={`px-3 py-1.5 text-sm ${
                   viewMode === "all"
-                    ? "bg-white/10 text-white"
-                    : "text-white/70 hover:bg-white/5"
+                    ? "bg-white/10 "
+                    : "/70 hover:bg-white/5"
                 }`}
                 onClick={() => setViewMode("all")}
               >
@@ -467,10 +478,10 @@ export default function AdminUsersPage() {
               </button>
             </div>
             {/* Orden */}
-            <label className="text-sm text-white/80">
+            <label className="text-sm /80">
               Ordenar:&nbsp;
               <select
-                className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-white"
+                className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 "
                 value={sortMode}
                 onChange={(e) =>
                   setSortMode(e.target.value as SortMode)
@@ -488,7 +499,7 @@ export default function AdminUsersPage() {
             <button
               className={`rounded-md px-4 py-2 font-semibold transition ${
                 thereAreChanges
-                  ? "bg-[#8e2afc] text-white hover:opacity-90"
+                  ? "bg-[#8e2afc]  hover:opacity-90"
                   : "bg-zinc-700 text-zinc-400 cursor-not-allowed"
               }`}
               disabled={!thereAreChanges || saving}
@@ -546,7 +557,7 @@ export default function AdminUsersPage() {
                     ? "text-rose-300 bg-rose-500/15 border-rose-400/30"
                     : isSent(u.solicitud_enviada_at)
                     ? "text-amber-300 bg-amber-500/15 border-amber-400/30"
-                    : "text-white/60 bg-white/10 border-white/20";
+                    : "/60 bg-white/10 /20";
                   const estadoLabel = approved
                     ? "aprobada"
                     : rejected
@@ -647,12 +658,12 @@ export default function AdminUsersPage() {
                           >
                             {estadoLabel}
                           </span>
-                          <span className="text-xs text-white/70">
+                          <span className="text-xs /70">
                             {u.solicitud_tipo
                               ? `Tipo: ${u.solicitud_tipo}`
                               : "Tipo: —"}
                           </span>
-                          <span className="text-xs text-white/50">
+                          <span className="text-xs /50">
                             {u.solicitud_enviada_at
                               ? new Date(
                                   u.solicitud_enviada_at
@@ -669,7 +680,7 @@ export default function AdminUsersPage() {
                                 Aprobado
                               </span>
                               <button
-                                className="px-3 py-1.5 rounded bg-rose-600/90 hover:bg-rose-600 text-white text-xs"
+                                className="px-3 py-1.5 rounded bg-rose-600/90 hover:bg-rose-600  text-xs"
                                 onClick={() =>
                                   onDisable(u.uid)
                                 }
@@ -680,7 +691,7 @@ export default function AdminUsersPage() {
                           ) : (
                             <div className="flex items-center gap-2">
                               <button
-                                className="px-3 py-1.5 rounded bg-emerald-600/90 hover:bg-emerald-600 text-white text-xs"
+                                className="px-3 py-1.5 rounded bg-emerald-600/90 hover:bg-emerald-600  text-xs"
                                 onClick={() =>
                                   onConfirm(u.uid)
                                 }
@@ -688,7 +699,7 @@ export default function AdminUsersPage() {
                                 Confirmar
                               </button>
                               <button
-                                className="px-3 py-1.5 rounded bg-rose-600/90 hover:bg-rose-600 text-white text-xs"
+                                className="px-3 py-1.5 rounded bg-rose-600/90 hover:bg-rose-600  text-xs"
                                 onClick={() =>
                                   onDisable(u.uid)
                                 }
@@ -699,7 +710,7 @@ export default function AdminUsersPage() {
                           )
                         ) : (
                           <button
-                            className="px-3 py-1.5 rounded bg-sky-600/90 hover:bg-sky-600 text-white text-xs"
+                            className="px-3 py-1.5 rounded bg-sky-600/90 hover:bg-sky-600  text-xs"
                             onClick={() => onEnable(u.uid)}
                           >
                             Habilitar

@@ -50,8 +50,8 @@ export default function TicketTypesEditor({
   };
 
   const fieldCls =
-    "w-full bg-white/5 text-white placeholder-white/40 border border-white/10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc] disabled:opacity-60";
-  const labelCls = "text-[11px] uppercase tracking-wide text-white/60 mb-1 block";
+    "w-full bg-white/5  placeholder-white/40 border /10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc] disabled:opacity-60";
+  const labelCls = "text-[11px] uppercase tracking-wide /60 mb-1 block";
 
   const totalDisponible = useMemo(
     () =>
@@ -81,7 +81,7 @@ export default function TicketTypesEditor({
             type="button"
             onClick={() => add(p)}
             disabled={disabled}
-            className="rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 px-3 py-1.5 text-sm font-medium"
+            className="rounded-full bg-white/[0.06] hover:bg-white/[0.12] border /10 px-3 py-1.5 text-sm font-medium"
           >
             + {p}
           </button>
@@ -96,17 +96,17 @@ export default function TicketTypesEditor({
         </button>
 
         {value.length > 0 && (
-          <div className="ml-auto text-xs text-white/60">
+          <div className="ml-auto text-xs /60">
             Stock total:{" "}
-            <span className="text-white">{totalDisponible.total}</span> •
-            Disponible: <span className="text-white">{totalDisponible.disp}</span>
+            <span className="">{totalDisponible.total}</span> •
+            Disponible: <span className="">{totalDisponible.disp}</span>
           </div>
         )}
       </div>
 
       {/* Vacío */}
       {value.length === 0 && (
-        <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.03] p-4 text-sm text-white/70">
+        <div className="rounded-lg border border-dashed /15 bg-white/[0.03] p-4 text-sm /70">
           Agrega al menos un tipo si habilitas ventas.
         </div>
       )}
@@ -121,12 +121,12 @@ export default function TicketTypesEditor({
           return (
             <div
               key={t.id}
-              className="rounded-xl border border-white/10 bg-white/[0.02] p-4 shadow-sm"
+              className="rounded-xl border /10 bg-white/[0.02] p-4 shadow-sm"
             >
               {/* Header de la card */}
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs border border-white/10">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs border /10">
                     {idx + 1}
                   </span>
 
@@ -139,7 +139,7 @@ export default function TicketTypesEditor({
                         onChange={(e) => update(t.id!, { name: e.target.value })}
                       />
                       {isLocked && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/70">
+                        <span className="inline-flex items-center gap-1 rounded-md border /10 bg-white/[0.06] px-2 py-0.5 text-[11px] /70">
                           🔒 preset
                         </span>
                       )}
@@ -149,14 +149,14 @@ export default function TicketTypesEditor({
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-white/50 mt-0.5">
-                      ID: <span className="text-white/70">{t.id}</span>
+                    <p className="text-[11px] /50 mt-0.5">
+                      ID: <span className="/70">{t.id}</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="md:ml-auto flex items-center gap-3">
-                  <label className="text-xs text-white/60">Activo</label>
+                  <label className="text-xs /60">Activo</label>
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-[#8e2afc]"
@@ -166,7 +166,7 @@ export default function TicketTypesEditor({
                   <button
                     type="button"
                     onClick={() => remove(t.id!)}
-                    className="ml-2 rounded-md border border-white/10 bg-white/[0.06] px-3 py-1.5 text-sm hover:bg-white/[0.12] text-red-300"
+                    className="ml-2 rounded-md border /10 bg-white/[0.06] px-3 py-1.5 text-sm hover:bg-white/[0.12] text-red-300"
                   >
                     Eliminar
                   </button>
@@ -178,7 +178,7 @@ export default function TicketTypesEditor({
                 <div>
                   <label className={labelCls}>Precio (CLP)</label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/50">$</span>
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 /50">$</span>
                     <input
                       type="number"
                       min={0}
@@ -213,9 +213,9 @@ export default function TicketTypesEditor({
                       });
                     }}
                   />
-                  <p className="mt-1 text-[11px] text-white/50">
+                  <p className="mt-1 text-[11px] /50">
                     Disponible calculado:{" "}
-                    <span className="text-white/80">{disponibleCalculado}</span>
+                    <span className="/80">{disponibleCalculado}</span>
                   </p>
                 </div>
 

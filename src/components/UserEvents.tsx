@@ -6,45 +6,77 @@ import {
   query,
   where,
   getDocs,
-  DocumentData,
-  Query,
+  Firestore,
 } from "firebase/firestore";
 import { useAuth } from "@/auth/AuthContext";
 import { db as firebaseDb } from "@/lib/firebase";
 
+/* ---------------------- Tipos ---------------------- */
 type Evento = {
   id_evento: string;
-  uid_usersWeb: string;
-  nombre: string;
-  tipo: string;
-  fecha: string; // 'YYYY-MM-DD'
+
+  // dueño
+  uid_usersWeb?: string | null; // "/usersWeb/<uid>"
+  uid_creador?: string | null;  // <uid> (legacy)
+
+  // fechas posibles
+  fechaInicio?: string | null;  // ISO (nuevo)
+  fecha?: string | null;        // "YYYY-MM-DD" (legacy)
   horaInicio?: string | null;
   horaCierre?: string | null;
+
+  nombre: string;
+  tipo: string;
   flyer?: string | null;
   imgSec?: string | null;
+
+  // descripción puede haberse guardado como 'descripcion' (nuevo) o 'desc' (legacy)
+  descripcion?: string | null;
   desc?: string | null;
-  generos: string[] | string | null;
+
+  generos?: string[] | string | null;
 };
 
-const normalizeGeneros = (g: Evento["generos"]): string[] => {
-  if (Array.isArray(g)) return g;
+/* ---------------------- Helpers seguros ---------------------- */
+const nz = (v: unknown): string => (v == null ? "" : String(v));
+const nzArr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+const normalizeGeneros = (g: unknown): string[] => {
+  if (Array.isArray(g)) return g.filter(Boolean).map(String);
   if (typeof g === "string") {
-    const bySep = g
+    return g
       .split(/[,;|]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    return bySep.length > 0 ? bySep : [];
   }
   return [];
 };
 
+// Devuelve la fecha/hora de inicio del evento sin reventar
 function getStartDate(e: Evento): Date {
-  const d = e.fecha;
-  const t = e.horaInicio ?? "00:00";
-  if (d.includes("T")) return new Date(d);
-  return new Date(`${d}T${t}`);
+  // preferimos el campo nuevo ISO
+  if (e.fechaInicio) {
+    const d = new Date(e.fechaInicio);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // fallback legacy: fecha "YYYY-MM-DD" + horaInicio "HH:mm"
+  const dStr = nz(e.fecha);
+  const tStr = nz(e.horaInicio) || "00:00";
+  if (dStr) {
+    // si ya viene con T, parseamos directo
+    const composed = dStr.includes("T") ? dStr : `${dStr}T${tStr}`;
+    const d = new Date(composed);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // último recurso: ahora (para que no rompa ordenamientos)
+  return new Date(0);
 }
 
+// Unifica descripción
+const getDescripcion = (e: Evento) => nz(e.descripcion ?? e.desc);
+
+/* ---------------------- Componente ---------------------- */
 export default function UserEvents() {
   const { user } = useAuth();
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -52,50 +84,61 @@ export default function UserEvents() {
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
 
   useEffect(() => {
-    const fetchEventos = async () => {
-      if (!user) return;
-
+    (async () => {
+      if (!user?.uid) return;
       setLoading(true);
       try {
-        // 1) Referenciamos la colección directamente sobre firebaseDb
-        const eventosCol = collection(firebaseDb, "Eventos");
-        // 2) Construimos la query
-        const q: Query = query(
-          eventosCol,
-          where("uid_usersWeb", "==", "/usersWeb/"+user.uid)
-        );
-        // 3) Ejecutamos
-        const snap = await getDocs(q);
+        const col = collection(firebaseDb as Firestore, "evento");
 
-        const events: Evento[] = snap.docs.map((doc) => {
-          const data = doc.data() as DocumentData;
+        // nuevos: uid_usersWeb = "/usersWeb/<uid>"
+        const qNew = query(col, where("uid_usersWeb", "==", `/usersWeb/${user.uid}`));
+        // legacy (por si acaso): uid_creador = "<uid>"
+        const qOld = query(col, where("uid_creador", "==", user.uid));
+
+        const [snapNew, snapOld] = await Promise.all([getDocs(qNew), getDocs(qOld)]);
+
+        const byId = new Map<string, Evento>();
+
+        const mapDoc = (doc: any): Evento => {
+          const d = doc.data() as any;
           return {
             id_evento: doc.id,
-            uid_usersWeb: data.uid,
-            nombre: data.nombre,
-            tipo: data.tipo,
-            fecha: data.fecha,
-            horaInicio: data.horaInicio ?? null,
-            horaCierre: data.horaCierre ?? null,
-            flyer: data.flyer ?? null,
-            imgSec: data.imgSec ?? null,
-            desc: data.desc ?? null,
-            generos: data.generos ?? null,
-          };
-        });
+            uid_usersWeb: d?.uid_usersWeb ?? null,
+            uid_creador: d?.uid_creador ?? null,
 
-        setEventos(events);
+            // fechas
+            fechaInicio: d?.fechaInicio ?? null,
+            fecha: d?.fecha ?? null,
+            horaInicio: d?.horaInicio ?? null,
+            horaCierre: d?.horaCierre ?? null,
+
+            nombre: nz(d?.nombre),
+            tipo: nz(d?.tipo),
+            flyer: d?.flyer ?? null,
+            imgSec: d?.imgSec ?? null,
+
+            // desc puede venir con clave distinta
+            descripcion: d?.descripcion ?? null,
+            desc: d?.desc ?? null,
+
+            generos: d?.generos ?? null,
+          };
+        };
+
+        snapNew.docs.forEach((doc) => byId.set(doc.id, mapDoc(doc)));
+        snapOld.docs.forEach((doc) => byId.set(doc.id, mapDoc(doc)));
+
+        setEventos(Array.from(byId.values()));
       } catch (err) {
         console.error("Error cargando eventos:", err);
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchEventos();
-  }, [user]);
+    })();
+  }, [user?.uid]);
 
   const now = new Date();
+
   const { upcoming, past } = useMemo(() => {
     const up: Evento[] = [];
     const pa: Evento[] = [];
@@ -117,23 +160,18 @@ export default function UserEvents() {
 
   const list = tab === "upcoming" ? upcoming : past;
 
-  if (loading) {
-    return <p className="text-white">Cargando eventos...</p>;
-  }
-  if (eventos.length === 0) {
-    return <p className="text-white/80">No tienes eventos registrados.</p>;
-  }
+  if (loading) return <p className="">Cargando eventos...</p>;
+  if (eventos.length === 0)
+    return <p className="/80">No tienes eventos registrados.</p>;
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-lg border border-white/10 w-fit">
+      <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-lg border /10 w-fit">
         <button
           onClick={() => setTab("upcoming")}
           className={`px-4 py-2 rounded-md text-sm transition ${
-            tab === "upcoming"
-              ? "bg-[#8e2afc] text-white"
-              : "text-white/80 hover:text-white"
+            tab === "upcoming" ? "bg-[#8e2afc] " : "/80 hover:"
           }`}
         >
           Próximos ({upcoming.length})
@@ -141,16 +179,14 @@ export default function UserEvents() {
         <button
           onClick={() => setTab("past")}
           className={`px-4 py-2 rounded-md text-sm transition ${
-            tab === "past"
-              ? "bg-[#8e2afc] text-white"
-              : "text-white/80 hover:text-white"
+            tab === "past" ? "bg-[#8e2afc] " : "/80 hover:"
           }`}
         >
           Realizados ({past.length})
         </button>
       </div>
 
-      <p className="text-white/70 mb-4">
+      <p className="/70 mb-4">
         {tab === "upcoming"
           ? "Eventos posteriores a la fecha/hora actual."
           : "Eventos que ya se realizaron."}
@@ -161,13 +197,13 @@ export default function UserEvents() {
           const generosList = normalizeGeneros(evento.generos);
           const start = getStartDate(evento);
           const fechaLegible = isNaN(start.getTime())
-            ? evento.fecha
+            ? nz(evento.fechaInicio ?? evento.fecha)
             : start.toLocaleString();
 
           return (
             <div
               key={evento.id_evento}
-              className="bg-neutral-900 rounded-lg overflow-hidden border border-white/10 shadow-md hover:shadow-[#8e2afc]/20 transition"
+              className="bg-neutral-900 rounded-lg overflow-hidden border /10 shadow-md hover:shadow-[#8e2afc]/20 transition"
             >
               {evento.flyer ? (
                 <img
@@ -176,23 +212,23 @@ export default function UserEvents() {
                   className="w-full h-48 object-cover"
                 />
               ) : (
-                <div className="w-full h-48 bg-white/10 flex items-center justify-center text-white/40 text-sm">
+                <div className="w-full h-48 bg-white/10 flex items-center justify-center /40 text-sm">
                   Sin imagen
                 </div>
               )}
 
-              <div className="p-4 text-white space-y-2">
-                <h3 className="text-lg font-semibold">{evento.nombre}</h3>
-                <p className="text-sm text-white/70">
+              <div className="p-4  space-y-2">
+                <h3 className="text-lg text-white font-semibold">{evento.nombre}</h3>
+                <p className="text-sm /70 text-white ">
                   <span className="font-medium">Tipo:</span> {evento.tipo}
                 </p>
-                <p className="text-sm text-white/70">
+                <p className="text-sm /70 text-white">
                   <span className="font-medium">Fecha:</span> {fechaLegible}
                 </p>
 
-                {evento.desc && (
-                  <p className="text-sm text-white/70 mt-1 line-clamp-2">
-                    {evento.desc}
+                {getDescripcion(evento) && (
+                  <p className="text-sm /70 text-white mt-1 line-clamp-2">
+                    {getDescripcion(evento)}
                   </p>
                 )}
 
@@ -201,7 +237,7 @@ export default function UserEvents() {
                     {generosList.map((g) => (
                       <span
                         key={g}
-                        className="text-xs px-2 py-1 rounded bg-[#8e2afc]/20 text-[#cbb3ff] border border-[#8e2afc]/30"
+                        className="text-xs text-white px-2 py-1 rounded bg-[#8e2afc]/20 text-[#cbb3ff] border border-[#8e2afc]/30"
                       >
                         {g}
                       </span>
@@ -212,7 +248,7 @@ export default function UserEvents() {
                 <div className="pt-3">
                   <Link
                     to={`/mis-eventos/${evento.id_evento}`}
-                    className="inline-flex items-center justify-center px-3 py-2 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-sm"
+                    className="inline-flex items-center text-white justify-center px-3 py-2 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-sm"
                   >
                     Ir a mi evento
                   </Link>
@@ -224,7 +260,7 @@ export default function UserEvents() {
       </div>
 
       {list.length === 0 && (
-        <div className="text-white/70 mt-6">
+        <div className="/70 mt-6">
           {tab === "upcoming"
             ? "No tienes eventos próximos."
             : "No tienes eventos realizados."}

@@ -43,11 +43,11 @@ export default function VenueSelect({
         value={term}
         onChange={(e)=>setTerm(e.target.value)}
         placeholder="Busca un club…"
-        className="w-full rounded-md bg-white/5 border border-white/10 px-3 py-2"
+        className="w-full rounded-md bg-white/5 border /10 px-3 py-2"
       />
-      {loading && <div className="text-xs text-white/60">Buscando…</div>}
+      {loading && <div className="text-xs /60">Buscando…</div>}
       {!!res.length && (
-        <ul className="bg-black/70 border border-white/10 rounded-md max-h-56 overflow-auto">
+        <ul className="bg-black/70 border /10 rounded-md max-h-56 overflow-auto">
           {res.map(c=>(
             <li key={c.id}>
               <button
@@ -56,7 +56,7 @@ export default function VenueSelect({
                 className="w-full text-left px-3 py-2 hover:bg-white/5"
               >
                 <div className="font-medium">{c.nombre}</div>
-                <div className="text-xs text-white/60">
+                <div className="text-xs /60">
                   {[c.ciudad, c.pais].filter(Boolean).join(", ")}
                 </div>
               </button>

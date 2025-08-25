@@ -83,18 +83,18 @@ export default function RoleRequestPage() {
   };
 
   if (loading || authLoading) {
-    return <p className="text-white p-6">Cargando…</p>;
+    return <p className=" p-6">Cargando…</p>;
   }
 
   // 3) Si ya tiene estado, mostramos su estado actual
   if (status) {
     return (
       <div className="max-w-md mx-auto p-6 bg-neutral-900 rounded-lg">
-        <h2 className="text-xl text-white mb-4">Estado de tu solicitud</h2>
-        <p className="text-white/80 mb-2">
-          Tipo: <strong className="text-white">{roleType}</strong>
+        <h2 className="text-xl  mb-4">Estado de tu solicitud</h2>
+        <p className="/80 mb-2">
+          Tipo: <strong className="">{roleType}</strong>
         </p>
-        <p className="text-white/80 mb-4">
+        <p className="/80 mb-4">
           Estado:{" "}
           <span
             className={
@@ -111,7 +111,7 @@ export default function RoleRequestPage() {
         {status === "rechazada" && (
           <button
             onClick={() => setStatus(null)}
-            className="px-4 py-2 bg-[#8e2afc] rounded text-white"
+            className="px-4 py-2 bg-[#8e2afc] rounded "
           >
             Volver a solicitar
           </button>
@@ -126,14 +126,14 @@ export default function RoleRequestPage() {
       onSubmit={handleSubmit}
       className="max-w-md mx-auto p-6 bg-neutral-900 rounded-lg space-y-4"
     >
-      <h2 className="text-xl text-white">Solicita un rol</h2>
+      <h2 className="text-xl ">Solicita un rol</h2>
 
       <label className="block">
-        <span className="text-white/80">Tipo de solicitud</span>
+        <span className="/80">Tipo de solicitud</span>
         <select
           value={roleType}
           onChange={(e) => setRoleType(e.target.value as RoleType)}
-          className="mt-1 w-full p-2 bg-zinc-800 text-white rounded"
+          className="mt-1 w-full p-2 bg-zinc-800  rounded"
         >
           <option value="productor">Productor</option>
           <option value="club_owner">Club Owner</option>
@@ -144,7 +144,7 @@ export default function RoleRequestPage() {
       <button
         type="submit"
         disabled={loading}
-        className={`w-full py-2 rounded text-white ${
+        className={`w-full py-2 rounded  ${
           loading ? "bg-zinc-700" : "bg-[#8e2afc] hover:bg-[#7b1fe0]"
         }`}
       >

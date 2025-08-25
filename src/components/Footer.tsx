@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const FormattedContent = ({ text }: { text: string }) => {
   return (
-    <div className="space-y-4 text-sm text-white/90 leading-relaxed">
+    <div className="space-y-4 text-sm /90 leading-relaxed">
       {text.split("\n\n").map((paragraph, i) => (
         <p key={i} className="whitespace-pre-line">
           {paragraph.split("\n").map((line, j) => (
@@ -84,14 +84,14 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="bg-zinc-900 text-white mt-20 border-t border-white/10 relative z-10">
+      <footer className="bg-zinc-900 text-white mt-20 border-t /10 relative z-10">
         <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
             <h4 className="text-[#8e2afc] font-bold mb-3">Sobre GoUp</h4>
-            <ul className="space-y-2 text-white/80">
+            <ul className="space-y-2 /80">
               {["¿Qué es GoUp?", "Nuestra Promesa", "Preguntas frecuentes"].map(item => (
                 <li key={item}>
-                  <button onClick={() => setModalContent(item)} className="hover:underline text-left">
+                  <button onClick={() => setModalContent(item)} className="hover:underline text-white text-left">
                     {item}
                   </button>
                 </li>
@@ -100,10 +100,10 @@ export default function Footer() {
           </div>
           <div>
             <h4 className="text-[#8e2afc] font-bold mb-3">Tu Evento</h4>
-            <ul className="space-y-2 text-white/80">
+            <ul className="space-y-2 /80">
               {["¿Eres productor?", "Crea tu evento", "Que nos hace únicos"].map(item => (
                 <li key={item}>
-                  <button onClick={() => setModalContent(item)} className="hover:underline text-left">
+                  <button onClick={() => setModalContent(item)} className="hover:underline text-white text-left">
                     {item}
                   </button>
                 </li>
@@ -112,10 +112,10 @@ export default function Footer() {
           </div>
           <div>
             <h4 className="text-[#8e2afc] font-bold mb-3">Legal</h4>
-            <ul className="space-y-2 text-white/80">
+            <ul className="space-y-2 /80">
               {["Términos y condiciones", "Política de privacidad"].map(item => (
                 <li key={item}>
-                  <button onClick={() => setModalContent(item)} className="hover:underline text-left">
+                  <button onClick={() => setModalContent(item)} className="hover:underline  text-white text-left">
                     {item}
                   </button>
                 </li>
@@ -124,14 +124,14 @@ export default function Footer() {
           </div>
           <div>
             <h4 className="text-[#8e2afc] font-bold mb-3">Contacto</h4>
-            <ul className="space-y-2 text-white/80">
+            <ul className="space-y-2 /80">
               <li><span>contacto@goup.cl</span></li>
               <li><span>+56 9 9435 4820</span></li>
               <li><span>Lun a Vie: 10:00 a 18:00 hrs</span></li>
             </ul>
           </div>
         </div>
-        <div className="border-t border-white/10 text-center text-white/50 text-xs py-4">
+        <div className="border-t /10 text-center /50 text-xs py-4">
           © {new Date().getFullYear()} GoUp. Todos los derechos reservados.
         </div>
       </footer>
@@ -154,8 +154,8 @@ export default function Footer() {
               transition={{ type: "spring", bounce: 0.2 }}
             >
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-bold text-[#8e2afc]">{modalContent}</h2>
-                <button onClick={closeModal} className="text-white/70 hover:text-white">✕</button>
+                <h2 className="text-lg font-bold text-white text-[#8e2afc]">{modalContent}</h2>
+                <button onClick={closeModal} className="/70 hover:">✕</button>
               </div>
               <FormattedContent text={contents[modalContent]} />
             </motion.div>

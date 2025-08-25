@@ -1,0 +1,296 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useFormContext } from "react-hook-form";
+
+type Locks = { city: boolean; country: boolean };
+type Suggestion = {
+  placeId: string;
+  main: string;
+  secondary: string;
+};
+
+type Props = {
+  nameDireccion?: string;
+  nameLat?: string;
+  nameLng?: string;
+  nameCity?: string;
+  nameCountry?: string;
+  label?: string;
+  countryCode?: string; // "CL", "AR", etc
+  onLock?: (locks: Locks) => void;
+};
+
+const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string;
+
+// ——— Utils ———
+const debounce = <T extends (...args: any[]) => void>(fn: T, ms = 400) => {
+  let h: any;
+  return (...args: Parameters<T>) => {
+    clearTimeout(h);
+    h = setTimeout(() => fn(...args), ms);
+  };
+};
+
+function pickCityCountry(
+  components: Array<{ types: string[]; longText?: string; shortText?: string }>
+) {
+  let city = "";
+  let country = "";
+  for (const c of components || []) {
+    if (!city && (c.types?.includes("locality") || c.types?.includes("postal_town"))) {
+      city = c.longText ?? c.shortText ?? "";
+    }
+    if (!country && c.types?.includes("country")) {
+      country = c.longText ?? c.shortText ?? "";
+    }
+  }
+  return { city, country };
+}
+
+// cache ligera: input -> suggestions
+const memoryCache = new Map<string, Suggestion[]>();
+
+export default function AddressMapInputGoogle({
+  nameDireccion = "direccion",
+  nameLat = "latitud",
+  nameLng = "longitud",
+  nameCity = "ciudad",
+  nameCountry = "pais",
+  label = "Dirección *",
+  countryCode = "CL",
+  onLock,
+}: Props) {
+  const { register, setValue, watch } = useFormContext();
+  const dir = watch(nameDireccion) as string | undefined;
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<Suggestion[]>([]);
+  const sessionTokenRef = useRef<string | null>(null);
+
+  // Crear/reciclar token por “sesión” de autocompletado
+  const ensureSessionToken = () => {
+    if (!sessionTokenRef.current) {
+      // token pseudo-random simple; para producción puedes usar crypto
+      sessionTokenRef.current = Math.random().toString(36).slice(2);
+    }
+    return sessionTokenRef.current;
+  };
+
+  // resetear token cuando se selecciona una sugerencia
+  const clearSessionToken = () => {
+    sessionTokenRef.current = null;
+  };
+
+  const doFetch = useMemo(
+    () =>
+      debounce(async (q: string) => {
+        if (!API_KEY) {
+          console.warn("Falta VITE_GOOGLE_PLACES_API_KEY");
+          return;
+        }
+        if (q.trim().length < 3) {
+          setItems([]);
+          setError(null);
+          return;
+        }
+        // cache local
+        if (memoryCache.has(q)) {
+          setItems(memoryCache.get(q)!);
+          setError(null);
+          return;
+        }
+
+        try {
+          setBusy(true);
+          setError(null);
+
+          const body = {
+            input: q,
+            languageCode: "es",
+            regionCode: countryCode, // sesgo regional
+            includedPrimaryTypes: ["street_address", "route", "premise"],
+            sessionToken: ensureSessionToken(),
+          };
+
+          // Places API (New) usa X-Goog-FieldMask
+          const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": API_KEY,
+              "X-Goog-FieldMask":
+                "suggestions.placePrediction.placeId," +
+                "suggestions.placePrediction.structuredFormat.mainText.text," +
+                "suggestions.placePrediction.structuredFormat.secondaryText.text",
+            },
+            body: JSON.stringify(body),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(
+              err?.error?.message ||
+                `Autocomplete error ${res.status}: ${res.statusText}`
+            );
+          }
+
+          const data = await res.json();
+          const suggestions: Suggestion[] = (data?.suggestions || [])
+            .map((s: any) => ({
+              placeId: s?.placePrediction?.placeId,
+              main: s?.placePrediction?.structuredFormat?.mainText?.text ?? "",
+              secondary:
+                s?.placePrediction?.structuredFormat?.secondaryText?.text ?? "",
+            }))
+            .filter((s: Suggestion) => s.placeId);
+
+          memoryCache.set(q, suggestions);
+          setItems(suggestions);
+        } catch (e: any) {
+          console.error(e);
+          setError(e?.message || "No se pudo obtener sugerencias");
+          setItems([]);
+        } finally {
+          setBusy(false);
+        }
+      }, 400),
+    [countryCode]
+  );
+
+  // Buscar sugerencias (debounced)
+  useEffect(() => {
+    if (!dir) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    doFetch(dir);
+  }, [dir, doFetch]);
+
+  // Al seleccionar una sugerencia -> obtener detalles del place
+  const pickSuggestion = async (s: Suggestion) => {
+    try {
+      if (!API_KEY) return;
+      setBusy(true);
+      setError(null);
+
+      // GET details
+      const placeUrl = `https://places.googleapis.com/v1/places/${encodeURIComponent(
+        s.placeId
+      )}`;
+
+      const res = await fetch(placeUrl, {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": API_KEY,
+          // Field mask de detalles necesarios
+          "X-Goog-FieldMask":
+            "id,displayName.text,formattedAddress,location," +
+            "addressComponents",
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          err?.error?.message || `Place details error ${res.status}`
+        );
+      }
+
+      const place = await res.json();
+
+      // Setear dirección visible y lat/lng
+      const formatted: string =
+        place?.formattedAddress ||
+        place?.displayName?.text ||
+        [s.main, s.secondary].filter(Boolean).join(", ");
+
+      setValue(nameDireccion, formatted, { shouldValidate: true, shouldDirty: true });
+
+      const lat = place?.location?.latitude ?? null;
+      const lng = place?.location?.longitude ?? null;
+      if (lat != null && lng != null) {
+        setValue(nameLat, lat, { shouldValidate: true, shouldDirty: true });
+        setValue(nameLng, lng, { shouldValidate: true, shouldDirty: true });
+      }
+
+      // ciudad / país desde addressComponents
+      const comps =
+        (place?.addressComponents as Array<{
+          types: string[];
+          longText?: string;
+          shortText?: string;
+        }>) || [];
+
+      const { city, country } = pickCityCountry(comps);
+
+      if (city) setValue(nameCity, city, { shouldValidate: true, shouldDirty: true });
+      if (country)
+        setValue(nameCountry, country, { shouldValidate: true, shouldDirty: true });
+
+      // bloquear inputs si los encontramos
+      onLock?.({
+        city: Boolean(city),
+        country: Boolean(country),
+      });
+
+      // cerrar dropdown y cerrar sesión de token
+      setOpen(false);
+      clearSessionToken();
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "No se pudo obtener el lugar seleccionado");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ——— UI ———
+  return (
+    <div className="space-y-2">
+      <label className="block  text-sm font-medium">{label}</label>
+
+      <div className="relative">
+        <input
+          {...register(nameDireccion)}
+          className="w-full rounded-md bg-white/5 border /10 px-3 py-2  outline-none focus:ring-2 focus:ring-[#8e2afc]"
+          placeholder="Escribe la dirección…"
+          autoComplete="off"
+          onFocus={() => dir && dir.length >= 3 && setOpen(true)}
+        />
+
+        {/* Dropdown de sugerencias */}
+        {open && (items.length > 0 || busy || error) && (
+          <div className="absolute z-20 mt-1 w-full rounded-md bg-black/90 border /10 shadow-lg max-h-64 overflow-auto">
+            {busy && (
+              <div className="px-3 py-2 text-sm /70">Buscando…</div>
+            )}
+            {error && !busy && (
+              <div className="px-3 py-2 text-sm text-red-400">
+                {error === "No se pudo obtener sugerencias"
+                  ? `${error}`
+                  : `Error: ${error}`}
+              </div>
+            )}
+            {!busy &&
+              !error &&
+              items.map((s) => (
+                <button
+                  key={s.placeId}
+                  type="button"
+                  onClick={() => pickSuggestion(s)}
+                  className="w-full text-left px-3 py-2 hover:bg-white/10"
+                >
+                  <div className=" text-sm">{s.main}</div>
+                  {s.secondary && (
+                    <div className="/60 text-xs">{s.secondary}</div>
+                  )}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
