@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+goupevents-infra-non-prod-s23-firebase-adminsdk-fbsvc-aa635c03a9.json
+
 !supabase/
 !supabase/functions/
 !supabase/functions/**
