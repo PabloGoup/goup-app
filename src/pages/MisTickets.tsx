@@ -14,7 +14,7 @@ import { db as firebaseDb } from "@/lib/firebase";
 
 /* ===== Tipos ===== */
 type UserTicket = {
-  // campos persistidos por ítem en `orders`
+  // campos persistidos por ítem en `finishedOrder`
   orderId: string;
   status?: "paid" | "pending" | "failed" | "canceled";
   eventId?: string | null;
@@ -49,6 +49,16 @@ type TicketQR = {
   dataUrl: string;
   status: "valid" | "used" | "void";
   usedAt?: number | null;
+  guestIndex?: number | null;
+  attendee?: {
+    nombre?: string | null;
+    correo?: string | null;
+    rut?: string | null;
+    telefono?: string | null;
+    sexo?: string | null;
+    fecha_nacimiento?: string | null; // YYYY-MM-DD
+    edad?: number | null;
+  } | null;
 };
 
 async function generateQrDataUrl(text: string): Promise<string> {
@@ -207,10 +217,10 @@ export default function MisTickets() {
       try {
         const out: UserTicket[] = [];
 
-        // === Modelo NUEVO: 1 doc por ítem en `orders`
+        // === Modelo NUEVO: 1 doc por ítem en `finishedOrder`
         // Query 1: por buyerUid
         const q1 = query(
-          collection(firebaseDb, "orders"),
+          collection(firebaseDb, "finishedOrder"),
           where("buyerUid", "==", user.uid)
         );
         const snap1 = await getDocs(q1);
@@ -236,7 +246,7 @@ export default function MisTickets() {
         // Query 2: por email (por si buyerUid no se guardó o usuario cambió)
         if (user.email) {
           const q2 = query(
-            collection(firebaseDb, "orders"),
+            collection(firebaseDb, "finishedOrder"),
             where("email", "==", user.email)
           );
           const snap2 = await getDocs(q2);
@@ -325,8 +335,20 @@ export default function MisTickets() {
     setDetail(t);
     setQrLoading(true);
     setQrList([]);
+    // Helper para extraer campos QR + nominativo
+    const pickFromTicketDoc = (d: any, id: string) => {
+      const data = d as any;
+      const text = data?.qr?.text || data?.qrText || data?.code || data?.qr || "";
+      const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
+      const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
+      const attendee = (data?.attendee as any) || null;
+      const guestIndex = (data?.guestIndex as number) ?? null;
+      return text
+        ? { id, text, status: status === "void" ? "void" : status === "used" ? "used" : "valid", usedAt, attendee, guestIndex }
+        : null;
+    };
     try {
-      let qrDocs: { id: string; text: string; status: "valid" | "used" | "void"; usedAt?: number | null }[] = [];
+      let qrDocs: any[] = [];
 
       // 0) Preferimos listar explícitamente por ticketIds (si vienen en el detalle)
       const explicitIds = ((t as any)?.raw?.ticketIds as string[] | undefined)?.filter(Boolean) || [];
@@ -337,37 +359,16 @@ export default function MisTickets() {
               const dref = doc(firebaseDb, "tickets", id);
               const dsnap = await getDoc(dref);
               if (!dsnap.exists()) return null;
-              const data = dsnap.data() as any;
-              const text =
-                data?.qr?.text ||
-                data?.qrText ||
-                data?.code ||
-                data?.qr ||
-                "";
-              const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-              const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-              return text
-                ? {
-                    id: dsnap.id,
-                    text,
-                    status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                    usedAt,
-                  }
-                : null;
+              return pickFromTicketDoc(dsnap.data(), dsnap.id);
             } catch {
               return null;
             }
           })
         );
-        qrDocs = docs.filter(Boolean) as {
-          id: string;
-          text: string;
-          status: "valid" | "used" | "void";
-          usedAt?: number | null;
-        }[];
+        qrDocs = docs.filter(Boolean) as any[];
       }
 
-      // 1) Si no había ticketIds o ninguno útil, intentar por orderItemId (raw.id del ítem en `orders`)
+      // 1) Si no había ticketIds o ninguno útil, intentar por orderItemId (raw.id del ítem en `finishedOrder`)
       if (qrDocs.length === 0) {
         const orderItemId = (t as any)?.raw?.id as string | undefined;
         if (orderItemId) {
@@ -377,25 +378,7 @@ export default function MisTickets() {
           );
           const s1 = await getDocs(q1);
           qrDocs = s1.docs
-            .map((d) => {
-              const data = d.data() as any;
-              const text =
-                data?.qr?.text ||
-                data?.qrText ||
-                data?.code ||
-                data?.qr ||
-                "";
-              const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-              const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-              return text
-                ? {
-                    id: d.id,
-                    text,
-                    status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                    usedAt,
-                  }
-                : null;
-            })
+            .map((d) => pickFromTicketDoc(d.data(), d.id))
             .filter(Boolean) as any;
         }
       }
@@ -411,29 +394,56 @@ export default function MisTickets() {
         qrDocs = s2.docs
           .map((d) => {
             const data = d.data() as any;
-            const text =
-              data?.qr?.text ||
-              data?.qrText ||
-              data?.code ||
-              data?.qr ||
-              "";
-            const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-            const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-            const matchType =
-              !typeId ||
-              data?.ticketTypeId === typeId ||
-              data?.ticketId === typeId;
-            return matchType && text
-              ? {
-                  id: d.id,
-                  text,
-                  status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                  usedAt,
-                }
-              : null;
+            const typeId = (t.ticketId as string) || (t as any)?.ticketTypeId || null;
+            const matchType = !typeId || data?.ticketTypeId === typeId || data?.ticketId === typeId;
+            return matchType ? pickFromTicketDoc(data, d.id) : null;
           })
           .filter(Boolean) as any;
       }
+
+      // 2.5) Completar nominativos desde ordersWeb/{orderId}/attendees si faltan y ordenar por guestIndex
+      try {
+        const selOrder = t.orderId;
+        const missing = Array.isArray(qrDocs) && qrDocs.some((q: any) => !q || !q.attendee || typeof q.guestIndex !== 'number');
+        if (selOrder && missing) {
+          const atSnap = await getDocs(collection(firebaseDb, 'ordersWeb', selOrder, 'attendees'));
+          const attendeesByIdx = atSnap.docs
+            .map(d => ({ id: d.id, ...(d.data() as any) }))
+            .filter(a => a && (a.guestIndex || a.id))
+            .sort((a,b) => Number(a.guestIndex||a.id) - Number(b.guestIndex||b.id));
+
+          // Mezclar por posición: Cliente 1 → ticket 1, Cliente 2 → ticket 2, ...
+          qrDocs = (qrDocs as any[]).map((q, i) => {
+            if (!q) return q;
+            const already = typeof q.guestIndex === 'number' && q.attendee;
+            if (!already) {
+              const att = attendeesByIdx[i];
+              if (att) {
+                return { ...q, attendee: {
+                  nombre: att.nombre ?? null,
+                  correo: att.correo ?? null,
+                  rut: att.rut ?? null,
+                  telefono: att.telefono ?? null,
+                  sexo: att.sexo ?? null,
+                  fecha_nacimiento: att.fecha_nacimiento ?? null,
+                  edad: typeof att.edad === 'number' ? att.edad : null,
+                }, guestIndex: att.guestIndex ?? (i+1) };
+              }
+            }
+            return q;
+          });
+        }
+      } catch (e) {
+        console.warn('[MisTickets] fallback attendees merge failed', e);
+      }
+
+      // 2.6) Si hay guestIndex, ordenamos por Cliente N para que el Ticket 1 muestre al Cliente 1
+      try {
+        const hasGI = Array.isArray(qrDocs) && qrDocs.some((q: any) => typeof q?.guestIndex === 'number');
+        if (hasGI) {
+          qrDocs.sort((a: any, b: any) => ( (a?.guestIndex ?? 9e9) - (b?.guestIndex ?? 9e9) ));
+        }
+      } catch {}
 
       // 3) Generar imágenes (dataURL local o URL de fallback)
       const imgs = await Promise.all(
@@ -446,7 +456,13 @@ export default function MisTickets() {
         }))
       );
 
-      setQrList(imgs);
+      // Mezcla dataUrl con info nominativa (por id o por posición)
+      const merged = imgs.map((img, i) => {
+        const byId = (qrDocs as any[]).find((q) => q && q.id === img.id);
+        const base = byId || (qrDocs as any[])[i] || ({} as any);
+        return { ...img, attendee: base.attendee || null, guestIndex: typeof base.guestIndex === 'number' ? base.guestIndex : (i+1) } as TicketQR;
+      });
+      setQrList(merged);
     } catch (e) {
       console.warn("QR load error:", e);
       setQrList([]);
@@ -482,7 +498,7 @@ export default function MisTickets() {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Orden de compra <span className="text-[#8e2afc]">{selectedOrderId}</span>
+            Orden de compra <span className="text-[#FE8B02]">{selectedOrderId}</span>
           </h1>
           <button
             className="px-4 py-2 rounded-md border border-white/15 hover:bg-white/10 w-full sm:w-auto"
@@ -654,7 +670,7 @@ export default function MisTickets() {
 
                               {/* Cabecera: Ticket N */}
                               <div className="w-full text-center text-xs font-medium pt-2 pb-1 px-2">
-                                Ticket {i + 1}
+                                Ticket {i + 1}{q.guestIndex ? ` • Cliente ${q.guestIndex}` : ""}
                               </div>
 
                               {/* Imagen QR: ocupa el ancho completo de la card */}
@@ -663,6 +679,19 @@ export default function MisTickets() {
                                 alt={`QR ${i + 1}`}
                                 className="w-[80%] max-w-[250px] mx-auto h-auto block"
                               />
+
+                              {/* Datos nominativos del asistente */}
+                              {q.attendee && (
+                                <div className="mx-2 mt-2 mb-1 rounded border border-white/10 bg-white/5 p-2 text-[12px] grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
+                                  <div><span className="text-white/60">Asignado a: </span><b>{q.attendee.nombre || "—"}</b></div>
+                                  {q.attendee.correo && <div><span className="text-white/60">Correo: </span>{q.attendee.correo}</div>}
+                                  {q.attendee.rut && <div><span className="text-white/60">RUT: </span>{q.attendee.rut}</div>}
+                                  {q.attendee.telefono && <div><span className="text-white/60">Teléfono: </span>{q.attendee.telefono}</div>}
+                                  {q.attendee.sexo && <div><span className="text-white/60">Sexo: </span>{q.attendee.sexo}</div>}
+                                  {typeof q.attendee.edad === 'number' && <div><span className="text-white/60">Edad: </span>{q.attendee.edad}</div>}
+                                  {q.attendee.fecha_nacimiento && <div><span className="text-white/60">Nac.: </span>{q.attendee.fecha_nacimiento}</div>}
+                                </div>
+                              )}
 
                               {/* Código + acciones */}
                               <div className="px-2 pt-2 pb-3 flex flex-col items-center gap-1">
@@ -732,8 +761,8 @@ export default function MisTickets() {
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff]">
-          Mis tickets
+      <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+          Mis  <span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Tickets</span>
         </h1>
         <p className="text-foreground/70 mt-2">Tus compras de entradas en GoUp.</p>
       </header>
@@ -790,7 +819,7 @@ export default function MisTickets() {
                     <div className="shrink-0 text-right">
                       <div className="font-semibold">{CLP.format(Math.round(total))}</div>
                       <button
-                        className="mt-2 px-3 py-1.5 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs"
+                        className="mt-2 px-3 py-1.5 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] text-xs"
                         onClick={() => {
                           const p = new URLSearchParams(searchParams);
                           p.set("orden", orderId);
@@ -830,7 +859,7 @@ export default function MisTickets() {
                     <div className="mt-2 flex items-center justify-between">
                       <div className="font-semibold">{CLP.format(Math.round(total))}</div>
                       <button
-                        className="px-3 py-1.5 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs"
+                        className="px-3 py-1.5 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] text-xs"
                         onClick={() => {
                           const p = new URLSearchParams(searchParams);
                           p.set("orden", orderId);

@@ -76,7 +76,7 @@ export default function HeroVideo() {
             // Modo LOGO: nunca se recorta, centrado y con fondo gradiente
             <motion.div
               key={current.src}
-              className="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#8e2afc]"
+              className="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#FE8B02]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

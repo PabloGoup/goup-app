@@ -171,7 +171,7 @@ export default function UserEvents() {
         <button
           onClick={() => setTab("upcoming")}
           className={`px-4 py-2 rounded-md text-sm transition ${
-            tab === "upcoming" ? "bg-[#8e2afc] " : "/80 hover:"
+            tab === "upcoming" ? "bg-[#FE8B02] " : "/80 hover:"
           }`}
         >
           Próximos ({upcoming.length})
@@ -179,7 +179,7 @@ export default function UserEvents() {
         <button
           onClick={() => setTab("past")}
           className={`px-4 py-2 rounded-md text-sm transition ${
-            tab === "past" ? "bg-[#8e2afc] " : "/80 hover:"
+            tab === "past" ? "bg-[#FE8B02] " : "/80 hover:"
           }`}
         >
           Realizados ({past.length})
@@ -203,7 +203,7 @@ export default function UserEvents() {
           return (
             <div
               key={evento.id_evento}
-              className="bg-neutral-900 rounded-lg overflow-hidden border /10 shadow-md hover:shadow-[#8e2afc]/20 transition"
+              className="bg-neutral-900 rounded-lg overflow-hidden border /10 shadow-md hover:shadow-[#FE8B02]/20 transition"
             >
               {evento.flyer ? (
                 <img
@@ -237,7 +237,7 @@ export default function UserEvents() {
                     {generosList.map((g) => (
                       <span
                         key={g}
-                        className="text-xs text-white px-2 py-1 rounded bg-[#8e2afc]/20 text-[#cbb3ff] border border-[#8e2afc]/30"
+                        className="text-xs text-white px-2 py-1 rounded bg-[#FE8B02]/20 text-[#cbb3ff] border border-[#FE8B02]/30"
                       >
                         {g}
                       </span>
@@ -248,7 +248,7 @@ export default function UserEvents() {
                 <div className="pt-3">
                   <Link
                     to={`/mis-eventos/${evento.id_evento}`}
-                    className="inline-flex items-center text-white justify-center px-3 py-2 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-sm"
+                    className="inline-flex items-center text-white justify-center px-3 py-2 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] text-sm"
                   >
                     Ir a mi evento
                   </Link>

@@ -31,7 +31,7 @@ export default function ModalConfirm({
           </button>
           <button
             className={`px-4 py-2 rounded ${
-              loading ? "opacity-60 cursor-not-allowed" : "bg-[#8e2afc] hover:bg-[#7b1fe0]"
+              loading ? "opacity-60 cursor-not-allowed" : "bg-[#FE8B02] hover:bg-[#7b1fe0]"
             }`}
             onClick={onConfirm}
             disabled={loading}

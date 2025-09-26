@@ -95,12 +95,12 @@ export const eventSchema = z.object({
       reservas: z
   .string()
   .transform((val) => val === "Sí"),
-  tieneLineup: z
-  .string()
-  .transform((val) => val === "Sí"),
+ // tieneLineup: z
+ // .string()
+//  .transform((val) => val === "Sí"),
   
-      cantidadDJs: z.string().optional(),
-      djs: z.array(z.string()).optional(),
+ //     cantidadDJs: z.string().optional(),
+  //    djs: z.array(z.string()).optional(),
   dress_code: z.string({ required_error: "Debes seleccionar un código de vestimenta" }),
   generosOtro: z.string().optional(),
       

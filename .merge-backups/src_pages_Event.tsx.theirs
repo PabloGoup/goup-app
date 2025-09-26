@@ -149,7 +149,7 @@ function LoadingButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 bg-[#8e2afc] hover:bg-[#7b1fe0] ${className}`}
+      className={`inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 bg-[#FE8B02] hover:bg-[#7b1fe0] ${className}`}
       disabled={loading}
       {...rest}
     >
@@ -176,7 +176,7 @@ function SuccessModal({
         <h2 className="mb-2 text-2xl font-semibold text-green-400">{title}</h2>
         {subtitle && <p className="/70">{subtitle}</p>}
         <button
-          className="mt-6 rounded bg-[#8e2afc] px-4 py-2 text-sm font-medium hover:bg-[#7b1fe0]"
+          className="mt-6 rounded bg-[#FE8B02] px-4 py-2 text-sm font-medium hover:bg-[#7b1fe0]"
           onClick={onClose}
         >
           Cerrar
@@ -365,14 +365,14 @@ function EventFormSinglePage() {
 
   // Estilos para inputs simples
   const fieldCls =
-    "w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc]";
+    "w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FE8B02]";
 
   return (
     <main className="relative  px-4 py-8">
       <header className="max-w-5xl mx-auto space-y-2 mb-8 text-center">
         <img src={logo} alt="GoUp" className="mx-auto w-28" />
         <h1 className="text-3xl md:text-4xl font-extrabold">
-          CREAR <span className="text-[#8e2afc]">EVENTO</span>
+          CREAR <span className="text-[#FE8B02]">EVENTO</span>
         </h1>
         <p className="/70">Organiza la experiencia perfecta con GoUp</p>
       </header>
@@ -412,7 +412,7 @@ function EventFormSinglePage() {
                   <input
                     id="sell"
                     type="checkbox"
-                    className="h-5 w-5 accent-[#8e2afc]"
+                    className="h-5 w-5 accent-[#FE8B02]"
                     checked={!!venderTickets}
                     onChange={(e) => methods.setValue("venderTickets", e.target.checked)}
                   />

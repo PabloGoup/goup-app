@@ -68,7 +68,7 @@ import React, {
   }) {
     return (
       <div className="space-y-2">
-        <h2 className="text-2xl font-extrabold tracking-tight text-[#8e2afc] flex items-center gap-2">
+        <h2 className="text-2xl font-extrabold tracking-tight text-[#FE8B02] flex items-center gap-2">
           {icon && <span className="text-2xl">{icon}</span>} {title}
         </h2>
         {children}
@@ -133,15 +133,15 @@ import React, {
   
     return (
       <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">{label}</span>
+        <span className="text-l text-bold font-medium">{label}</span>
         <input
           type={type}
           placeholder={placeholder}
           {...register(name)}
           {...props}
-          className={`rounded-md px-3 py-2 bg-[#0f0f16] border ${
+          className={`rounded-md px-2 py-2 bg-[#0f0f16] border ${
             err ? "border-red-500" : "border-[#3a3357]"
-          } focus:outline-none focus:border-[#8e2afc] placeholder:/30`}
+          } focus:outline-none focus:border-[#FE8B02] placeholder:/30`}
         />
         {helper && <span className="text-xs /40">{helper}</span>}
         {err && <span className="text-xs text-red-500">{err}</span>}
@@ -178,9 +178,9 @@ import React, {
           placeholder={placeholder}
           {...register(name)}
           {...props}
-          className={`rounded-md px-3 py-2 bg-[#0f0f16] border ${
+          className={`rounded-md px-2 py-2 bg-[#0f0f16] border ${
             err ? "border-red-500" : "border-[#3a3357]"
-          } focus:outline-none focus:border-[#8e2afc] placeholder:/30`}
+          } focus:outline-none focus:border-[#FE8B02] placeholder:/30`}
         />
         {helper && <span className="text-xs /40">{helper}</span>}
         {err && <span className="text-xs text-red-500">{err}</span>}
@@ -208,12 +208,10 @@ import React, {
   
     return (
       <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">{label}</span>
+        <span className="text-l text-bold font-medium">{label}</span>
         <select
           {...register(name)}
-          className={`rounded-md px-3 py-2 bg-[#0f0f16] border ${
-            err ? "border-red-500" : "border-[#3a3357]"
-          } focus:outline-none focus:border-[#8e2afc]`}
+          className="w-full bg-white/5 border /10 rounded px-2 py-2 h-[42px] text-sm text-center goup-select"
           defaultValue=""
         >
           {placeholder && (
@@ -256,7 +254,7 @@ import React, {
               type="checkbox"
               checked={!!value}
               onChange={(e) => onChange(e.target.checked)}
-              className="relative w-11 h-6 appearance-none rounded-full bg-gray-600 checked:bg-[#8e2afc] transition-colors cursor-pointer"
+              className="relative w-11 h-6 appearance-none rounded-full bg-gray-600 checked:bg-[#FE8B02] transition-colors cursor-pointer"
             />
           </div>
         )}
@@ -281,15 +279,15 @@ import React, {
     const err = getError(errors, name)?.message;
   
     return (
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">{label}</span>
+      <label className="flex text-white flex-col gap-1">
+        <span className="text-sm text-white font-medium">{label}</span>
   
         <div
-          className={`flex items-center gap-2 bg-[#0f0f16] border ${
+          className={`flex items-center gap-2 bg-[#0f0f16] text-white  border ${
             err ? "border-red-500" : "border-[#3a3357]"
           } rounded-md p-2`}
         >
-          <UploadCloud size={18} className="text-[#8e2afc]" />
+          <UploadCloud size={18} className="text-white " />
           <input
             type="file"
             accept={accept}
@@ -299,7 +297,7 @@ import React, {
                 shouldValidate: true,
               });
             }}
-            className="flex-1 bg-transparent focus:outline-none  file:mr-2 file:rounded file:border-none file:bg-[#8e2afc] file:px-2 file:py-1 file:"
+            className="flex-1 bg-transparent focus:outline-none text-white file:mr-2 file:rounded file:border-none file:bg-[#FE8B02] file:px-2 file:py-1 file:"
           />
         </div>
   

@@ -254,7 +254,7 @@ export default function AddressMapInputGoogle({
       <div className="relative">
         <input
           {...register(nameDireccion)}
-          className="w-full rounded-md bg-white/5 border /10 px-3 py-2  outline-none focus:ring-2 focus:ring-[#8e2afc]"
+          className="w-full rounded-md bg-white/5 border /10 px-3 py-2  outline-none focus:ring-2 focus:ring-[#FE8B02]"
           placeholder="Escribe la dirección…"
           autoComplete="off"
           onFocus={() => dir && dir.length >= 3 && setOpen(true)}

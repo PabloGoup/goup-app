@@ -72,18 +72,58 @@
   --ring: var(--primary);
 }
 
-/* Google Places (tu CSS) */
+/* Google Places (dark friendly) */
 .pac-container {
   z-index: 9999 !important;
   border-radius: 10px;
   overflow: hidden;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 10px 30px rgba(0,0,0,.45);
 }
-.pac-item { cursor: pointer; }
+.pac-item {
+  cursor: pointer;
+  color: hsl(var(--foreground));
+}
+.pac-item:hover {
+  background: hsl(var(--secondary));
+}
+.pac-item .pac-item-query,
+.pac-matched {
+  color: #cbb3ff; /* realce morado para coincidencias */
+}
+.pac-icon {
+  filter: invert(1) opacity(.85);
+}
 
 /* ====== MAPEO BASE A TAILWIND ====== */
 @layer base {
   * { @apply border-border; }
   html, body, #root { @apply bg-background text-foreground; }
+  /* Campos de formulario legibles en dark */
+  input, textarea, select {
+    color: hsl(var(--foreground));
+    caret-color: hsl(var(--foreground));
+    background-color: transparent; /* respeta bg de Tailwind */
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: .85;
+  }
+  /* Autofill Chrome/Safari: evita texto negro sobre dark */
+  input:-webkit-autofill,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: #ffffff !important;
+    transition: background-color 99999s ease-in-out 0s;
+  }
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #ffffff !important;
+  }
 }
 
 /* ====== UTILIDADES / ANIMACIONES ====== */
@@ -147,7 +187,7 @@
   }
 
   .btn-elev {
-    box-shadow: 0 4px 14px rgba(142,42,252,.25), 0 2px 4px rgba(0,0,0,.25);
+    box-shadow: 0 4px 14px rgba(159, 148, 171, 0.25), 0 2px 4px rgba(0,0,0,.25);
   }
 
   .title-outline {
@@ -230,4 +270,85 @@
       rgba(9,9,9,0.00) 100%
     );
   }
+  input[type="file"]::file-selector-button {
+    background-color: #8e2afc; /* Botón morado */
+    color: white;             /* Texto blanco */
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  input[type="file"]::file-selector-button:hover {
+    background-color: #7b1fe0; /* Hover */
+  }
+
+  input[type="file"]::-webkit-file-upload-button {
+    background-color: #8e2afc;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+}
+
+/* =============================
+   GoUp Select (custom combobox)
+   ============================= */
+@layer components {
+  /* Base look */
+  .goup-select {
+    @apply w-full rounded-md border border-white/15 bg-black/5 px-2 py-2 text-sm text-foreground outline-none;
+    appearance: none;                /* hide native arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    color-scheme: dark;              /* dark popup on supported browsers */
+
+    /* custom arrow */
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'><path d='M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right .6rem center;
+    background-size: 16px 16px;
+    padding-right: 2.25rem;          /* room for arrow */
+  }
+  .goup-select:focus {
+    @apply ring-2 ring-[#FE8B02] ring-offset-0 border-[#FE8B02]/50;
+  }
+  .goup-select:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+  /* Windows/IE legacy */
+  .goup-select::-ms-expand { display: none; }
+
+  /* Sizes */
+  .goup-select-sm { @apply px-2 py-2 text-xs; background-position: right .5rem center; padding-right: 1.75rem; }
+  .goup-select-lg { @apply px-4 py-3 text-base; background-position: right .75rem center; padding-right: 2.5rem; }
+
+  /* Invalid state helper */
+  .goup-select-invalid { @apply border-red-500 ring-1 ring-red-500; }
+
+  /* --- Windows/Chrome dropdown visibility fixes & consistency --- */
+  /* force stable metrics so Windows doesn't render huge/blank rows */
+  .goup-select {
+    line-height: 1.2;        /* predictable text vertical align */
+    min-height: 40px;        /* consistent control height */
+    height: 40px;            /* prevents oversized native rows */
+    padding-top: 0;          /* avoid double vertical padding */
+    padding-bottom: 0;       /* idem */
+    background-color: rgba(255,255,255,0.06); /* solid-ish bg behind popup */
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  /* Ensure readable options in Windows native popup */
+  .goup-select option {
+    color: #e7e7e7;
+    background-color: #111; /* avoid white strips */
+  }
+
+  /* Legacy/Edge old arrow */
+  .goup-select::-ms-expand { display: none; }
+
+  /* Subtle scrollbar styling when the list is long */
+  .goup-select { scrollbar-color: rgba(255,255,255,0.35) transparent; }
 }

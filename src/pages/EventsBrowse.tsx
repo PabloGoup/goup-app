@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { useNavigate } from "react-router-dom";
 import DistanceSlider from "@/components/DistanceSlider";
 import toast from "react-hot-toast";
+import { MUSIC_GENRES } from "@/lib/musicGenres";
 
 /* ================== Tipos ================== */
 type EventDoc = {
@@ -71,19 +72,6 @@ const norm = (v?: string | null) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-/* Catálogo base para que los chips SIEMPRE se muestren */
-const GENRES_DEFAULT = [
-  "Reguetón",
-  "Techno",
-  "House",
-  "Pop",
-  "Salsa",
-  "Hardstyle",
-  "Trance",
-  "Hip-Hop",
-  "Urbano",
-  "Guaracha",
-];
 
 /* ================== Botones/Icons reutilizables ================== */
 function IconBtn({
@@ -176,7 +164,7 @@ function EventCardMobile({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && onOpen()}
-      className="group w-full rounded-2xl text-left bg-card/90 border border-border/60 hover:ring-1 hover:ring-primary/40 transition shadow-[0_6px_18px_-8px_rgba(0,0,0,.45)] px-3 py-3 flex items-center gap-3"
+      className="group w-full rounded-2xl text-left bg-card/90 border border-border/60 hover:ring-1 hover:ring-[#FE8B02]/60 transition shadow-[0_6px_18px_-8px_rgba(0,0,0,.45)] px-3 py-3 flex items-center gap-3"
     >
       <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0">
         <img src={flyer} alt={e.nombre} className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
@@ -239,12 +227,12 @@ function EventCardDesktop({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && onOpen()}
-      className="relative group rounded-2xl select-none text-left outline-none focus:ring-2 focus:ring-primary/40"
+      className="relative group rounded-2xl select-none text-left outline-none focus:ring-2 focus:ring-[#FE8B02]"
       aria-label={`Abrir ${e.nombre}`}
     >
       <div className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-black/40 mix-blend-screen opacity-60 group-hover:opacity-35 transition-opacity" />
       <div
-        className="relative rounded-2xl overflow-hidden bg-card ring-1 ring-border hover:ring-primary/60 shadow-[0_0_0_0_rgba(142,42,252,0)] hover:shadow-[0_18px_42px_-10px_rgba(142,42,252,0.35)] transform-gpu transition duration-300 group-hover:-translate-y-0.5 group-hover:scale-[1.02]"
+        className="relative rounded-2xl overflow-hidden bg-card ring-1 ring-border hover:ring-[#FE8B02]/70 shadow-[0_0_0_0_rgba(254,139,2,0)] hover:shadow-[0_18px_42px_-10px_rgba(254,139,2,0.35)] transform-gpu transition duration-300 group-hover:-translate-y-0.5 group-hover:scale-[1.02]"
       >
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           <IconBtn title={fav ? "Quitar de favoritos" : "Agregar a favoritos"} onClick={toggle}>
@@ -373,12 +361,24 @@ export default function EventsBrowse() {
     );
   }, []);
 
-  // Catálogo de géneros: unión (DB + defaults)
+  // Catálogo de géneros PRINCIPALES (desde librería) y mapa main -> (main + subgéneros) normalizados
   const genresCatalog = useMemo(() => {
-    const set = new Set<string>(GENRES_DEFAULT);
-    events.forEach((e) => e.generos?.forEach((g) => g && set.add(g)));
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [events]);
+    return MUSIC_GENRES.slice()
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map((g) => g.genre);
+  }, []);
+
+  const mainToSubs = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    MUSIC_GENRES.forEach((g) => {
+      const key = norm(g.genre);
+      const set = new Set<string>();
+      set.add(key);
+      (g.subgenres || []).forEach((s) => set.add(norm(s)));
+      m.set(key, set);
+    });
+    return m;
+  }, []);
 
   // Derivados selects localidad
   const cities = useMemo(() => {
@@ -415,10 +415,17 @@ export default function EventsBrowse() {
       });
     }
 
-    // Géneros (AND) con normalización
+    // Géneros (principal -> subgéneros). Si seleccionas 1+ principales, mostramos eventos que tengan AL MENOS uno de los subgéneros de cualquiera de los principales seleccionados.
     if (selectedGenres.length > 0) {
-      const required = selectedGenres.map(norm);
-      list = list.filter((e) => required.every((g) => (e.generosNorm ?? []).includes(g)));
+      const selectedMainNorm = selectedGenres.map(norm);
+      list = list.filter((e) => {
+        const evGenres = e.generosNorm ?? [];
+        return selectedMainNorm.some((main) => {
+          const allowed = mainToSubs.get(main);
+          if (!allowed) return false;
+          return evGenres.some((g) => allowed.has(g));
+        });
+      });
     }
 
     // Localidad
@@ -496,14 +503,17 @@ export default function EventsBrowse() {
     <main className="max-w-6xl mx-auto px-4 py-10">
       {/* Header */}
       <header className="mb-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff]">Próximos Eventos</h1>
+        <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+          Próximos <span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Eventos</span>
+        </h1>
+        <div className="mx-auto mt-2 h-2 w-40 bg-[radial-gradient(closest-side,rgba(254,139,2,0.5),rgba(0,0,0,0)_70%)] blur-xl" />
         <p className="text-foreground/70 mt-2">No te pierdas las mejores fiestas y eventos en tu ciudad.</p>
       </header>
 
       {/* Buscador (sin drawer) */}
       <div className="flex items-start gap-3 mb-2">
         <input
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#8e2afc]"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#FE8B02]"
           placeholder="Buscar por nombre…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -521,7 +531,7 @@ export default function EventsBrowse() {
                 onClick={() => setSelectedGenres((cur) => (active ? cur.filter((x) => x !== g) : [...cur, g]))}
                 className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs border transition ${
                   active
-                    ? "bg-[#8e2afc]/30 border-[#8e2afc]/60 text-[#e7dcff]"
+                    ? "bg-[#FE8B02]/30 border-[#FE8B02]/60 text-[#e7dcff]"
                     : "bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10"
                 }`}
                 aria-pressed={active}

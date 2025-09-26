@@ -480,8 +480,8 @@ export default function FavoritesPage() {
       {/* Hero simple */}
       <section className="relative isolate w-full overflow-visible -mb-4">
         <div className="max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff] text-center">
-            Mis favoritos
+        <h1 className="text-4xl text-center md:text-8xl font-extrabold tracking-tight">
+           Mis <span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Favoritos</span>
           </h1>
           <p className="text-center text-white/70 mt-2">
             Guarda en un solo lugar tus artistas, clubes y eventos.
@@ -498,7 +498,7 @@ export default function FavoritesPage() {
                 key={t}
                 onClick={() => setTab(t)}
                 className={`px-4 py-1.5 rounded-full text-sm font-semibold transition
-                  ${tab === t ? "bg-[#8e2afc] text-white" : "hover:bg-white/10"}`}
+                  ${tab === t ? "bg-[#FE8B02] text-white" : "hover:bg-white/10"}`}
               >
                 {t === "club" ? "Clubes" : t === "event" ? "Eventos" : "Artistas"} ({counts[t]})
               </button>
@@ -615,7 +615,7 @@ function EmptyBlock({ text, linkText, to }: { text: string; linkText: string; to
       <p className="text-white/70">{text}</p>
       <Link
         to={to}
-        className="inline-block mt-3 px-4 py-2 rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] text-sm font-semibold"
+        className="inline-block mt-3 px-4 py-2 rounded-full bg-[#FE8B02] hover:bg-[#7b1fe0] text-sm font-semibold"
       >
         {linkText}
       </Link>

@@ -1,5 +1,6 @@
 // src/components/venues/VenueComboBox.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Firestore,
   collection,
@@ -17,6 +18,7 @@ export default function VenueComboBox({
   onNewVenue,
   label = "Localidad (Club) *",
   placeholder = "Buscar un club por nombre…",
+  
 }: {
   value: string;
   onChange: (id: string) => void;
@@ -27,6 +29,7 @@ export default function VenueComboBox({
   const [clubs, setClubs] = useState<ClubOption[]>([]);
   const [queryText, setQueryText] = useState("");
   const [open, setOpen] = useState(false);
+  const [popRect, setPopRect] = useState<{ left: number; top: number; width: number } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -65,6 +68,18 @@ export default function VenueComboBox({
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    const onWin = () => updateRect();
+    window.addEventListener("scroll", onWin, true);
+    window.addEventListener("resize", onWin);
+    return () => {
+      window.removeEventListener("scroll", onWin, true);
+      window.removeEventListener("resize", onWin);
+    };
+  }, [open]);
+
   // Texto mostrado en el input: si no hay filtro, mostrar el nombre del seleccionado
   const selected = useMemo(
     () => clubs.find((c) => c.id === value) || null,
@@ -100,6 +115,13 @@ export default function VenueComboBox({
     },
   };
 
+  function updateRect() {
+    const el = inputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPopRect({ left: r.left, top: r.bottom, width: r.width });
+  }
+
   return (
     <div className="space-y-2">
       <label className="text-sm /70">{label}</label>
@@ -108,12 +130,13 @@ export default function VenueComboBox({
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
-            className="w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc]"
+            className="w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FE8B02]"
             placeholder={placeholder}
             value={inputValue}
             onFocus={() => {
               setOpen(true);
               setQueryText(""); // al abrir, habilita búsqueda
+              updateRect();
             }}
             onChange={(e) => {
               setQueryText(e.target.value);
@@ -134,54 +157,58 @@ export default function VenueComboBox({
           </button>
         </div>
 
-        {open && (
-          <div
-            ref={popoverRef}
-            className="absolute z-30 mt-1 w-full rounded-lg border /10 bg-neutral-900/95 backdrop-blur-sm shadow-lg max-h-64 overflow-auto"
-            role="listbox"
-          >
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm /60 flex items-center justify-between">
-                <span>Sin resultados</span>
-                <button
-                  type="button"
-                  className="text-[#cbb3ff] hover:underline"
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={onNewVenue}
-                >
-                  + Nueva localidad
-                </button>
-              </div>
-            ) : (
-              <>
-                {filtered.map((opt) => (
+        {open && popRect &&
+          createPortal(
+            <div
+              ref={popoverRef}
+              className="fixed z-[9999] rounded-lg border /10 bg-neutral-900/95 backdrop-blur-sm shadow-lg max-h-64 overflow-auto"
+              role="listbox"
+              style={{ left: popRect.left, top: popRect.top, width: popRect.width }}
+            >
+              {filtered.length === 0 ? (
+                <div className="px-3 py-2 text-sm /60 flex items-center justify-between">
+                  <span>Sin resultados</span>
                   <button
-                    key={opt.id}
                     type="button"
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 ${
-                      opt.id === value ? "bg-white/5" : ""
-                    }`}
-                    {...selectEvents}
-                    onClick={() => handleSelect(opt)}
-                    role="option"
-                    aria-selected={opt.id === value}
+                    className="text-[#cbb3ff] hover:underline"
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={onNewVenue}
                   >
-                    {opt.nombre}
+                    + Nueva localidad
                   </button>
-                ))}
-                <div className="border-t /10" />
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm text-[#cbb3ff] hover:bg-white/10"
-                  {...selectEvents}
-                  onClick={onNewVenue}
-                >
-                  + Nueva localidad
-                </button>
-              </>
-            )}
-          </div>
-        )}
+                </div>
+              ) : (
+                <>
+                  {filtered.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 ${
+                        opt.id === value ? "bg-white/5" : ""
+                      }`}
+                      {...selectEvents}
+                      onClick={() => handleSelect(opt)}
+                      role="option"
+                      aria-selected={opt.id === value}
+                    >
+                      {opt.nombre}
+                    </button>
+                  ))}
+                  <div className="border-t /10" />
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm text-[#cbb3ff] hover:bg-white/10"
+                    {...selectEvents}
+                    onClick={onNewVenue}
+                  >
+                    + Nueva localidad
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body
+          )
+        }
       </div>
     </div>
   );
