@@ -71,7 +71,7 @@ export default function ClubesAdmin() {
     localStorage.setItem("adminSelectedClubId", club.id); // guardar club.id
     navigate("/miClub"); // navegar
   }}
-  className="text-sm px-3 py-1 rounded bg-[#8e2afc] hover:bg-[#7b1fe0] transition"
+  className="text-sm px-3 py-1 rounded bg-[#FE8B02] hover:bg-[#7b1fe0] transition"
 >
   Ver / Editar
 </button>

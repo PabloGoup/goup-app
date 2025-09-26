@@ -42,7 +42,7 @@ export default function LoginPage() {
           </h1>
         <div>
           <h1 className="text-3xl font-extrabold">
-            CONÉCTATE <span className="text-[#8e2afc]">Y</span> REGÍSTRATE
+            CONÉCTATE <span className="text-[#FE8B02]">Y</span> REGÍSTRATE
           </h1>
           <p className="/70">CON NOSOTROS</p>
         </div>

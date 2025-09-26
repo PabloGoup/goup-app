@@ -6,7 +6,7 @@ export default function Testimonios() {
     ];
     return (
       <div className="panel">
-        <h3 className="text-xl font-bold text-[#8e2afc] mb-4">Loved by raverxs</h3>
+        <h3 className="text-xl font-bold text-[#FE8B02] mb-4">Loved by raverxs</h3>
         <div className="grid md:grid-cols-3 gap-4">
           {items.map((t) => (
             <blockquote key={t.q} className="rounded-md bg-white/5 border border-white/10 p-4">

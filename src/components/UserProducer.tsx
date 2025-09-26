@@ -99,7 +99,7 @@ export default function UserProducer() {
         <p className="mb-4">Aún no has creado tu productora.</p>
         <Link
           to="/productora/crear"
-          className="inline-flex items-center justify-center rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold"
+          className="inline-flex items-center justify-center rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold"
         >
           Crear productora
         </Link>
@@ -173,7 +173,7 @@ export default function UserProducer() {
           <div className="px-6 pt-4 relative z-20">
             <div className="flex items-end justify-between">
               <div className="flex items-center gap-4">
-                <div className="relative -mt-10 z-30 h-20 w-20 rounded-full overflow-hidden border-4 border-[#8e2afc] bg-white/10">
+                <div className="relative -mt-10 z-30 h-20 w-20 rounded-full overflow-hidden border-4 border-[#FE8B02] bg-white/10">
                   {producer.imagen ? (
                     <img
                       src={producer.imagen}
@@ -196,7 +196,7 @@ export default function UserProducer() {
               </div>
               <button
                 onClick={() => setEditMode(true)}
-                className="h-10 px-4 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0]"
+                className="h-10 px-4 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0]"
               >
                 Editar datos
               </button>
@@ -252,7 +252,7 @@ export default function UserProducer() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0] disabled:opacity-60"
+                className="px-4 py-2 rounded bg-[#FE8B02] hover:bg-[#7b1fe0] disabled:opacity-60"
               >
                 Guardar
               </button>
@@ -278,7 +278,7 @@ export default function UserProducer() {
               <button
                 onClick={onConfirmSave}
                 disabled={saving}
-                className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0]"
+                className="px-4 py-2 rounded bg-[#FE8B02] hover:bg-[#7b1fe0]"
               >
                 Sí, guardar
               </button>

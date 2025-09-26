@@ -1,22 +1,21 @@
 {
-    "name": "goup-functions",
+    "name": "functions",
     "private": true,
-    "engines": { "node": "18" },
     "main": "lib/index.js",
+    "engines": { "node": "20" },
     "scripts": {
       "build": "tsc -p .",
-      "serve": "npm run build && firebase emulators:start --only functions",
-      "deploy": "npm run build && firebase deploy --only functions",
-      "lint": "echo \"(optional)\""
+      "clean": "rimraf lib",
+      "watch": "tsc -w -p .",
+      "deploy:order": "npm run build && firebase deploy --only functions:onOrderWrite"
     },
     "dependencies": {
-      "firebase-admin": "^12.0.0",
-      "firebase-functions": "^4.6.0",
-      "stripe": "^14.0.0"
+      "firebase-admin": "^13.5.0",
+      "firebase-functions": "^6.4.0"
     },
     "devDependencies": {
-      "@types/node": "^20.0.0",
-      "ts-node": "^10.9.2",
-      "typescript": "^5.0.0"
+      "@types/node": "^20.11.0",
+      "rimraf": "^6.0.1",
+      "typescript": "^5.9.2"
     }
-  }
+}

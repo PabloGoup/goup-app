@@ -16,7 +16,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return (
     <>
       {a}
-      <span className="text-[#8e2afc] font-bold">{b}</span>
+      <span className="text-[#FE8B02] font-bold">{b}</span>
       {c}
     </>
   );
@@ -119,7 +119,7 @@ export default function HeaderSearchBar({
       <div
         className={`flex items-center gap-2 ${inputH} ${boxW}
                     rounded-full border border-white/15 bg-white/5 backdrop-blur
-                    pl-3 pr-3 focus-within:ring-2 focus-within:ring-[#8e2afc]/60`}
+                    pl-3 pr-3 focus-within:ring-2 focus-within:ring-[#FE8B02]/60`}
       >
         {/* lupa */}
         <svg viewBox="0 0 24 24" className="w-4 h-4 opacity-80" fill="none" stroke="currentColor">

@@ -16,6 +16,8 @@ type ClubDoc = {
   latitud?: number | null;
   longitud?: number | null;
   servicios?: string[] | null;
+  generos?: string[] | null;
+  subGeneros?: string[] | null; // puede venir como sub_generos en algunos docs
 };
 type ClubData = {
   id: string;
@@ -28,9 +30,24 @@ type ClubData = {
   lat?: number | null;
   lng?: number | null;
   servicios: string[];
+  generosAll: string[]; // géneros + subgéneros normalizados (lowercase)
 };
 
 /* =============== Utils =============== */
+// Árbol de géneros principales -> subgéneros (ajustable)
+const GENRE_TREE: Record<string, string[]> = {
+  electronica: ["house", "techno", "deep house", "minimal", "progressive", "drum &amp; bass", "dnb", "trance", "hardstyle", "dubstep"],
+  urbana: ["reggaeton", "trap", "hip hop", "r&amp;b", "dancehall"],
+  pop: ["latino", "k-pop", "indie pop", "electropop"],
+  rock: ["indie", "punk", "metal", "alternativo", "grunge"],
+  latino: ["salsa", "bachata", "merengue", "cumbia"],
+  clasicos: ["80s", "90s", "2000s"],
+};
+// Lista de géneros principales
+const MAIN_GENRES = Object.keys(GENRE_TREE);
+// Normaliza texto (lowercase, trim)
+const norm = (s?: string | null) => (s ? `${s}`.toLowerCase().trim() : "");
+
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -52,6 +69,7 @@ export default function ClubsBrowse() {
   const [city, setCity] = useState("");
   const [comuna, setComuna] = useState("");
   const [selectedSvcs, setSelectedSvcs] = useState<string[]>([]);
+  const [selectedMainGenres, setSelectedMainGenres] = useState<string[]>([]);
   const [distanceKm, setDistanceKm] = useState<number | null>(null); // <- sin distancia por defecto
   const [myPos, setMyPos] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -80,6 +98,14 @@ export default function ClubsBrowse() {
             servicios: Array.isArray(c?.servicios)
               ? c.servicios.map((s) => `${s}`.trim()).filter(Boolean)
               : [],
+            generosAll: [
+              ...(Array.isArray((c as any)?.generos) ? (c as any).generos : []),
+              ...(Array.isArray((c as any)?.subGeneros) ? (c as any).subGeneros : []),
+              ...(Array.isArray((c as any)?.sub_generos) ? (c as any).sub_generos : []),
+              ...(Array.isArray((c as any)?.genero) ? (c as any).genero : []),
+            ]
+              .map((g: any) => norm(g))
+              .filter(Boolean),
           };
         });
         setClubs(list);
@@ -122,6 +148,8 @@ export default function ClubsBrowse() {
     return [...s].sort((a,b)=>a.localeCompare(b));
   }, [clubs]);
 
+  const hasAnyGenre = useMemo(() => clubs.some(c => c.generosAll && c.generosAll.length), [clubs]);
+
   /* Filtro principal */
   const filtered = useMemo(() => {
     let list = clubs.slice();
@@ -142,6 +170,18 @@ export default function ClubsBrowse() {
       const v = comuna.trim().toLowerCase();
       list = list.filter((c) => (c.comuna ?? "").toLowerCase().includes(v));
     }
+    // Filtro por géneros principales: incluye si el club tiene el principal o cualquiera de sus subgéneros
+    if (selectedMainGenres.length > 0) {
+      list = list.filter((c) => {
+        const tags = new Set((c.generosAll || []).map(norm));
+        return selectedMainGenres.some((main) => {
+          const m = norm(main);
+          if (tags.has(m)) return true;
+          const subs = GENRE_TREE[m] || [];
+          return subs.some((sg) => tags.has(norm(sg)));
+        });
+      });
+    }
     if (selectedSvcs.length > 0) {
       list = list.filter((c) => selectedSvcs.every((s) => c.servicios?.includes(s)));
     }
@@ -155,13 +195,14 @@ export default function ClubsBrowse() {
 
     list.sort((a, b) => a.nombre.localeCompare(b.nombre));
     return list;
-  }, [clubs, q, city, comuna, selectedSvcs, myPos, distanceKm]);
+  }, [clubs, q, city, comuna, selectedSvcs, selectedMainGenres, myPos, distanceKm]);
 
   const clearFilters = () => {
     setQ("");
     setCity("");
     setComuna("");
     setSelectedSvcs([]);
+    setSelectedMainGenres([]);
     setDistanceKm(null); // <- vuelve a mostrar todo
   };
 
@@ -176,7 +217,7 @@ export default function ClubsBrowse() {
       {/* Buscador + botón Filtrar */}
       <div className="flex items-center gap-3 mb-6">
         <input
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#8e2afc]"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#FE8B02]"
           placeholder="Buscar por nombre o dirección…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -235,6 +276,33 @@ export default function ClubsBrowse() {
               </select>
             </div>
 
+            {/* Géneros principales */}
+            <div className="space-y-2 mb-4">
+              <p className="text-sm text-foreground/70">Géneros</p>
+              <div className="flex flex-wrap gap-2">
+                {MAIN_GENRES.map((g) => {
+                  const active = selectedMainGenres.includes(g);
+                  return (
+                    <button
+                      key={g}
+                      onClick={() =>
+                        setSelectedMainGenres((cur) =>
+                          active ? cur.filter((x) => x !== g) : [...cur, g]
+                        )
+                      }
+                      className={`px-2 py-1 rounded-full text-xs border transition ${
+                        active
+                          ? "bg-[#FE8B02]/30 border-[#FE8B02]/50 text-[#e7dcff]"
+                          : "bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Servicios (AND) */}
             <div className="space-y-2 mb-4">
               <p className="text-sm text-foreground/70">Servicios (debe incluir todos)</p>
@@ -251,7 +319,7 @@ export default function ClubsBrowse() {
                       }
                       className={`px-2 py-1 rounded-full text-xs border transition ${
                         active
-                          ? "bg-[#8e2afc]/30 border-[#8e2afc]/50 text-[#e7dcff]"
+                          ? "bg-[#FE8B02]/30 border-[#FE8B02]/50 text-[#e7dcff]"
                           : "bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10"
                       }`}
                     >

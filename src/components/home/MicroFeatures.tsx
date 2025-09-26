@@ -9,7 +9,7 @@ export default function MicroFeatures() {
     ];
     return (
       <div className="panel">
-        <h3 className="text-xl font-bold text-[#8e2afc] mb-3">Más que entradas</h3>
+        <h3 className="text-xl font-bold text-[#FE8B02] mb-3">Más que entradas</h3>
         <div className="flex flex-wrap gap-2">
           {items.map((t) => (
             <span key={t} className="chip">{t}</span>

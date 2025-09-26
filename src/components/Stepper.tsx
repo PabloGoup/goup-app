@@ -6,7 +6,7 @@ export function StepDots({ total, current }: { total: number; current: number })
         <span
           key={i}
           className={`h-2.5 w-2.5 rounded-full ${
-            i === current ? "bg-[#8e2afc]" : "bg-white/15"
+            i === current ? "bg-[#FE8B02]" : "bg-white/15"
           }`}
         />
       ))}

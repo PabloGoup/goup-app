@@ -30,7 +30,7 @@ export default function TicketTypesEditor({
       stockTotal: 0,
       stockDisponible: 0,
       perUserLimit: null,
-      orden: (value.at(-1)?.orden ?? 0) + 1,
+      orden: ((value.length ? (value[value.length - 1]?.orden ?? 0) : 0) + 1),
       activo: true,
     };
     onChange([...value, next]);
@@ -50,7 +50,7 @@ export default function TicketTypesEditor({
   };
 
   const fieldCls =
-    "w-full bg-white/5  placeholder-white/40 border /10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8e2afc] disabled:opacity-60";
+    "w-full bg-white/5  placeholder-white/40 border /10 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FE8B02] disabled:opacity-60";
   const labelCls = "text-[11px] uppercase tracking-wide /60 mb-1 block";
 
   const totalDisponible = useMemo(
@@ -81,7 +81,7 @@ export default function TicketTypesEditor({
             type="button"
             onClick={() => add(p)}
             disabled={disabled}
-            className="rounded-full bg-white/[0.06] hover:bg-white/[0.12] border /10 px-3 py-1.5 text-sm font-medium"
+            className="rounded bg-white/[0.06] hover:bg-white/[0.12] border /10 px-3 py-1.5 text-sm font-medium"
           >
             + {p}
           </button>
@@ -90,7 +90,7 @@ export default function TicketTypesEditor({
           type="button"
           onClick={() => add()}
           disabled={disabled}
-          className="rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] px-3 py-1.5 text-sm font-semibold"
+          className="rounded bg-[#FE8B02] hover:bg-[#7b1fe0] px-3 py-1.5 text-sm font-semibold"
         >
           + Personalizado
         </button>
@@ -159,7 +159,7 @@ export default function TicketTypesEditor({
                   <label className="text-xs /60">Activo</label>
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-[#8e2afc]"
+                    className="h-4 w-4 accent-[#FE8B02]"
                     checked={!!t.activo}
                     onChange={(e) => update(t.id!, { activo: e.target.checked })}
                   />

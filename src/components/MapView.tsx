@@ -29,7 +29,7 @@ export default function MapView({ lat, lng, height = 200, zoom = 16 }: Props) {
   if (!isLoaded) {
     return (
       <div
-        className="rounded border border-[#8e2afc]/30 bg-white/[0.03]"
+        className="rounded border border-[#FE8B02]/30 bg-white/[0.03]"
         style={{ height }}
       >
         <div className="h-full w-full grid place-items-center /60">
@@ -46,7 +46,7 @@ export default function MapView({ lat, lng, height = 200, zoom = 16 }: Props) {
   // };
 
   return (
-    <div className="rounded overflow-hidden border border-[#8e2afc]/30 shadow-lg" style={{ height }}>
+    <div className="rounded overflow-hidden border border-[#FE8B02]/30 shadow-lg" style={{ height }}>
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={center}

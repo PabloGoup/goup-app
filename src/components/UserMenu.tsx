@@ -17,7 +17,7 @@ export default function UserMenu() {
     return (
       <button
         onClick={() => signInWithGoogle()}
-        className="px-3 py-1.5 rounded-md bg-[#8e2afc]  text-sm hover:opacity-90"
+        className="px-3 py-1.5 rounded-md bg-[#FE8B02]  text-sm hover:opacity-90"
       >
         Iniciar sesión
       </button>

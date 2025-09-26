@@ -166,7 +166,7 @@ function StepDots({ step, total }: { step: number; total: number }) {
       {Array.from({ length: total }).map((_, i) => (
         <span
           key={i}
-          className={`h-2 w-2 rounded-full ${i === step ? "bg-[#8e2afc]" : "bg-white/20"}`}
+          className={`h-2 w-2 rounded-full ${i === step ? "bg-[#FE8B02]" : "bg-white/20"}`}
         />
       ))}
     </div>
@@ -179,7 +179,7 @@ function LoadingButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) {
   return (
     <button
-      className="inline-flex items-center justify-center rounded-md bg-[#8e2afc] px-4 py-2 text-sm font-medium hover:bg-[#7b1fe0] disabled:opacity-50"
+      className="inline-flex items-center justify-center rounded-md bg-[#FE8B02] px-4 py-2 text-sm font-medium hover:bg-[#7b1fe0] disabled:opacity-50"
       disabled={loading}
       {...rest}
     >
@@ -190,7 +190,7 @@ function LoadingButton({
 function LocalCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-2xl font-extrabold text-[#8e2afc] flex items-center gap-2">{title}</h2>
+      <h2 className="text-2xl font-extrabold text-[#FE8B02] flex items-center gap-2">{title}</h2>
       <div className="space-y-4">{children}</div>
     </section>
   );
@@ -356,7 +356,7 @@ function ClubWizard() {
       <header className="text-center space-y-2 mb-8">
         <img src={logo} alt="GoUp" className="mx-auto w-28" />
         <h1 className="text-3xl font-extrabold">
-          CREAR <span className="text-[#8e2afc]">CLUB</span>
+          CREAR <span className="text-[#FE8B02]">CLUB</span>
         </h1>
         <p className="/70">Publica tu club con fotos y detalles.</p>
       </header>

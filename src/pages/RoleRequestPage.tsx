@@ -111,7 +111,7 @@ export default function RoleRequestPage() {
         {status === "rechazada" && (
           <button
             onClick={() => setStatus(null)}
-            className="px-4 py-2 bg-[#8e2afc] rounded "
+            className="px-4 py-2 bg-[#FE8B02] rounded "
           >
             Volver a solicitar
           </button>
@@ -145,7 +145,7 @@ export default function RoleRequestPage() {
         type="submit"
         disabled={loading}
         className={`w-full py-2 rounded  ${
-          loading ? "bg-zinc-700" : "bg-[#8e2afc] hover:bg-[#7b1fe0]"
+          loading ? "bg-zinc-700" : "bg-[#FE8B02] hover:bg-[#7b1fe0]"
         }`}
       >
         {loading ? "Enviando…" : "Enviar solicitud"}

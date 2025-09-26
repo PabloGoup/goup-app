@@ -7,7 +7,7 @@ export default function NotFound() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">404</h1>
         <p className="/70">Página no encontrada.</p>
-        <Link to="/" className="text-[#8e2afc] underline">
+        <Link to="/" className="text-[#FE8B02] underline">
           Volver al inicio
         </Link>
       </div>

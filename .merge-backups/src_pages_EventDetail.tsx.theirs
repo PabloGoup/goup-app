@@ -234,7 +234,7 @@ function KeyRow({ k, v }: { k: string; v?: React.ReactNode }) {
 }
 function Badge({ label }: { label: string }) {
   return (
-    <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/20 text-[#e4d7ff] border border-[#8e2afc]/30">
+    <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/20 text-[#e4d7ff] border border-[#FE8B02]/30">
       {label}
     </span>
   );
@@ -517,7 +517,7 @@ export default function EventDetailPage() {
     return (
       <div className="p-6 ">
         <p>No se encontró el evento.</p>
-        <Link to="/mis-eventos" className="text-[#8e2afc] underline">Volver a mis eventos</Link>
+        <Link to="/mis-eventos" className="text-[#FE8B02] underline">Volver a mis eventos</Link>
       </div>
     );
   }
@@ -532,7 +532,7 @@ export default function EventDetailPage() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#8e2afc]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#FE8B02]" />
         )}
         <div className="relative h-full max-w-6xl mx-auto px-4 flex flex-col justify-end pb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -540,7 +540,7 @@ export default function EventDetailPage() {
               className={`text-xs px-2 py-1 rounded border ${
                 isPast
                   ? "bg-white/10 /20 /80"
-                  : "bg-[#8e2afc]/30 border-[#8e2afc]/50 text-[#e4d7ff]"
+                  : "bg-[#FE8B02]/30 border-[#FE8B02]/50 text-[#e4d7ff]"
               }`}
             >
               {isPast ? "Realizado" : "Próximo"}
@@ -565,7 +565,7 @@ export default function EventDetailPage() {
           {generos && generos.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {generos.map((g) => (
-                <span key={g} className="text-xs px-2 py-1 rounded bg-[#8e2afc]/40 text-[#e3d6ff] border border-[#8e2afc]/30">
+                <span key={g} className="text-xs px-2 py-1 rounded bg-[#FE8B02]/40 text-[#e3d6ff] border border-[#FE8B02]/30">
                   {g}
                 </span>
               ))}
@@ -579,7 +579,7 @@ export default function EventDetailPage() {
         <button
           type="button"
           onClick={() => setEditMode(true)}
-          className="px-4 py-2 rounded-md bg-[#8e2afc]/40 hover:bg-[#7b1fe0] transition"
+          className="px-4 py-2 rounded-md bg-[#FE8B02]/40 hover:bg-[#7b1fe0] transition"
         >
           Editar datos
         </button>
@@ -609,7 +609,7 @@ export default function EventDetailPage() {
                         href={googleMapsLink(club.latitud, club.longitud, club.direccion)}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs font-semibold"
+                        className="px-3 py-1.5 rounded-full bg-[#FE8B02] hover:bg-[#7b1fe0] text-xs font-semibold"
                       >
                         Google Maps
                       </a>
@@ -617,7 +617,7 @@ export default function EventDetailPage() {
                         href={wazeLink(club.latitud, club.longitud, club.direccion)}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 rounded-full bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs font-semibold"
+                        className="px-3 py-1.5 rounded-full bg-[#FE8B02] hover:bg-[#7b1fe0] text-xs font-semibold"
                       >
                         Waze
                       </a>
@@ -697,8 +697,8 @@ export default function EventDetailPage() {
                                   title={!puedeComprar ? "Fuera de ventana de venta o sin stock" : ""}
                                   className={`px-3 py-1.5 rounded-md /90 ${
                                     puedeComprar
-                                      ? "bg-[#8e2afc] hover:bg-[#7b1fe0]"
-                                      : "bg-[#8e2afc]/60 disabled:opacity-60 cursor-not-allowed"
+                                      ? "bg-[#FE8B02] hover:bg-[#7b1fe0]"
+                                      : "bg-[#FE8B02]/60 disabled:opacity-60 cursor-not-allowed"
                                   }`}
                                   onClick={() => {
                                     if (!puedeComprar) return;
@@ -743,7 +743,7 @@ export default function EventDetailPage() {
                         key={`${dj}-${i}`}
                         className="px-3 py-2 rounded border /10 bg-white/5 text-sm flex items-center gap-2"
                       >
-                        <span className="inline-flex w-6 h-6 rounded-full bg-[#8e2afc]/30 border border-[#8e2afc]/50 text-center items-center justify-center text-xs">
+                        <span className="inline-flex w-6 h-6 rounded-full bg-[#FE8B02]/30 border border-[#FE8B02]/50 text-center items-center justify-center text-xs">
                           {i + 1}
                         </span>
                         <span className="truncate">{dj}</span>
@@ -968,7 +968,7 @@ export default function EventDetailPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0] disabled:opacity-60"
+                  className="px-4 py-2 rounded bg-[#FE8B02] hover:bg-[#7b1fe0] disabled:opacity-60"
                   onClick={() => setSaving(true)}
                 >
                   Guardar cambios
@@ -992,7 +992,7 @@ export default function EventDetailPage() {
                   No
                 </button>
                 <button
-                  className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0]"
+                  className="px-4 py-2 rounded bg-[#FE8B02] hover:bg-[#7b1fe0]"
                   disabled={saving}
                   onClick={methods.handleSubmit(onConfirmSave)}
                 >

@@ -87,7 +87,7 @@ export default function Footer() {
       <footer className="bg-zinc-900 text-white mt-20 border-t /10 relative z-10">
         <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
-            <h4 className="text-[#8e2afc] font-bold mb-3">Sobre GoUp</h4>
+            <h4 className="text-[#FE8B02] font-bold mb-3">Sobre GoUp</h4>
             <ul className="space-y-2 /80">
               {["¿Qué es GoUp?", "Nuestra Promesa", "Preguntas frecuentes"].map(item => (
                 <li key={item}>
@@ -99,7 +99,7 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="text-[#8e2afc] font-bold mb-3">Tu Evento</h4>
+            <h4 className="text-[#FE8B02] font-bold mb-3">Tu Evento</h4>
             <ul className="space-y-2 /80">
               {["¿Eres productor?", "Crea tu evento", "Que nos hace únicos"].map(item => (
                 <li key={item}>
@@ -111,7 +111,7 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="text-[#8e2afc] font-bold mb-3">Legal</h4>
+            <h4 className="text-[#FE8B02] font-bold mb-3">Legal</h4>
             <ul className="space-y-2 /80">
               {["Términos y condiciones", "Política de privacidad"].map(item => (
                 <li key={item}>
@@ -123,7 +123,7 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="text-[#8e2afc] font-bold mb-3">Contacto</h4>
+            <h4 className="text-[#FE8B02] font-bold mb-3">Contacto</h4>
             <ul className="space-y-2 /80">
               <li><span>contacto@goup.cl</span></li>
               <li><span>+56 9 9435 4820</span></li>
@@ -147,14 +147,14 @@ export default function Footer() {
               exit={{ opacity: 0 }}
             />
             <motion.div
-              className="fixed bottom-0 left-0 right-0 bg-zinc-900 text-white p-6 z-50 rounded-t-2xl shadow-2xl border-t border-[#8e2afc] max-h-[70vh] overflow-y-auto"
+              className="fixed bottom-0 left-0 right-0 bg-zinc-900 text-white p-6 z-50 rounded-t-2xl shadow-2xl border-t border-[#FE8B02] max-h-[70vh] overflow-y-auto"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", bounce: 0.2 }}
             >
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-bold text-white text-[#8e2afc]">{modalContent}</h2>
+                <h2 className="text-lg font-bold text-white text-[#FE8B02]">{modalContent}</h2>
                 <button onClick={closeModal} className="/70 hover:">✕</button>
               </div>
               <FormattedContent text={contents[modalContent]} />

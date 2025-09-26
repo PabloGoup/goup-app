@@ -17,7 +17,7 @@ export function Switch({ checked, onChange, ...props }: SwitchProps) {
         onChange={onChange}
         {...props}
       />
-      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:bg-[#8e2afc] transition-colors" />
+      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:bg-[#FE8B02] transition-colors" />
       <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
     </label>
   );

@@ -11,9 +11,11 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth";
 import {
-  getFirestore,
-  enableIndexedDbPersistence,
-  enableMultiTabIndexedDbPersistence,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
+  enableNetwork,
 } from "firebase/firestore";
 
 /* ================== Config Firebase ================== */
@@ -64,29 +66,68 @@ export function signOut() {
   return firebaseSignOut(auth);
 }
 
-/* ================== Firestore ================== */
-export const db = getFirestore(app);
-
+/* ================== Firestore (nueva API de caché) ================== */
 /**
- * Activa cache persistente (IndexedDB).
- * - Primero intenta multi-tab para sincronizar entre pestañas.
- * - Si falla por “failed-precondition” (p.ej. Safari privado / WebView),
- *   intenta single-tab.
- * - Si tampoco se puede (navigator sin IndexedDB), Firestore seguirá
- *   funcionando sin persistencia (cache en memoria).
+ * - En navegador: usa cache persistente + multi-pestaña.
+ * - En SSR/WebWorkers/etc.: usa memoria.
  */
+export const db = initializeFirestore(app, {
+  // Cache persistente en navegador (multi-tab) o memoria en SSR/webworkers
+  localCache:
+    typeof window !== "undefined"
+      ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+      : memoryLocalCache(),
+  /**
+   * Mitiga errores de WebChannel 400 en algunos proxies/extensiones:
+   * - auto-detecta long polling si es necesario
+   * - usa Fetch Streams en lugar de WebChannel cuando está disponible
+   */
+  experimentalAutoDetectLongPolling: true,
+});
+
+// Fuerza conexión online para evitar "solo cache" tras usar emulador
 if (typeof window !== "undefined") {
-  enableMultiTabIndexedDbPersistence(db).catch(async (err: any) => {
-    if (err?.code === "failed-precondition") {
-      // No se puede multi-tab; intenta single-tab
-      try {
-        await enableIndexedDbPersistence(db);
-      } catch (e) {
-        console.info("[Firestore] Persistencia no disponible:", (e as any)?.code || e);
-      }
-    } else {
-      // p.ej. navigator sin IndexedDB
-      console.info("[Firestore] Persistencia no disponible:", err?.code || err);
-    }
+  enableNetwork(db).catch(() => {
+    // si ya está online o no aplica, ignoramos
   });
+  // Recuperación suave si alguna vez quedaste con caché corrupto por emulador ⇄ prod
+  if (typeof window !== "undefined") {
+    // Si detectamos fallo de escucha (guardado en sesión), purga caches al recargar una vez
+    const RECOVERY_FLAG = "goup:fs-recovered";
+    if (!sessionStorage.getItem(RECOVERY_FLAG)) {
+      // Escucha un error de transporte para forzar limpieza en el próximo load
+      window.addEventListener("unhandledrejection", (ev) => {
+        const msg = String((ev?.reason && (ev.reason.message || ev.reason)) || "");
+        if (msg.includes("WebChannelConnection") || msg.includes("transport errored")) {
+          try {
+            // Señalizamos para el siguiente reload
+            sessionStorage.setItem(RECOVERY_FLAG, "1");
+          } catch {}
+        }
+      });
+    } else {
+      // Primera carga después de un fallo: limpiamos storage de Firestore
+      (async () => {
+        try {
+          // Borra bases conocidas; si no existe, no pasa nada
+          const dbs = await (indexedDB as any).databases?.();
+          if (Array.isArray(dbs)) {
+            for (const d of dbs) {
+              if (d && d.name && /firestore|firebase/i.test(d.name)) {
+                try { indexedDB.deleteDatabase(d.name); } catch {}
+              }
+            }
+          } else {
+            // Fallback conservador
+            try { indexedDB.deleteDatabase("firebase-firestore-database"); } catch {}
+            try { indexedDB.deleteDatabase("firestore/[DEFAULT]"); } catch {}
+          }
+        } catch {}
+        // Limpiamos el flag para no repetir
+        sessionStorage.removeItem(RECOVERY_FLAG);
+        // Recargar para reconstruir caches sanos
+        setTimeout(() => location.reload(), 0);
+      })();
+    }
+  }
 }

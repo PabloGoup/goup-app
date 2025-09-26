@@ -435,7 +435,7 @@ export default function AdminUsersPage() {
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold">
-              Panel <span className="text-[#8e2afc]">de usuarios</span>
+              Panel <span className="text-[#FE8B02]">de usuarios</span>
             </h1>
             {pendingCount > 0 && (
               <p className="text-sm text-amber-300 mt-1">
@@ -481,7 +481,7 @@ export default function AdminUsersPage() {
             <label className="text-sm /80">
               Ordenar:&nbsp;
               <select
-                className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 "
+                className="goup-select "
                 value={sortMode}
                 onChange={(e) =>
                   setSortMode(e.target.value as SortMode)
@@ -499,7 +499,7 @@ export default function AdminUsersPage() {
             <button
               className={`rounded-md px-4 py-2 font-semibold transition ${
                 thereAreChanges
-                  ? "bg-[#8e2afc]  hover:opacity-90"
+                  ? "bg-[#FE8B02]  hover:opacity-90"
                   : "bg-zinc-700 text-zinc-400 cursor-not-allowed"
               }`}
               disabled={!thereAreChanges || saving}
@@ -585,7 +585,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <select
-                          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1"
+                          className="goup-select"
                           value={u.rol}
                           onChange={(e) =>
                             onChangeRol1(
@@ -609,7 +609,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <select
-                          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1"
+                          className="goup-select"
                           value={u.rol_extra ?? ""}
                           onChange={(e) =>
                             onChangeRol2(
@@ -636,7 +636,7 @@ export default function AdminUsersPage() {
                         <label className="inline-flex items-center gap-2">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 accent-[#8e2afc]"
+                            className="h-4 w-4 accent-[#FE8B02]"
                             checked={u.can_create_event}
                             onChange={(e) =>
                               onToggleCreateEvent(

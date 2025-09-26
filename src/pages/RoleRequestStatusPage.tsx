@@ -60,7 +60,7 @@ function TextInput({ name, register, type = "text", placeholder, disabled }: Tex
       type={type}
       placeholder={placeholder}
       disabled={disabled}
-      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
+      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#FE8B02] disabled:opacity-60"
       {...register(name)}
     />
   );
@@ -76,7 +76,7 @@ function SelectInput({ name, register, options, disabled }: SelectInputProps) {
   return (
     <select
       disabled={disabled}
-      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#8e2afc] disabled:opacity-60"
+      className="w-full rounded-md bg-transparent border /20 px-3 py-2 focus:outline-none focus:border-[#FE8B02] disabled:opacity-60"
       {...register(name)}
     >
       {options.map((o) => (

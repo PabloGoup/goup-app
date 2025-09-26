@@ -108,15 +108,24 @@ function ClubCardMobile({ club }: { club: ClubLike }) {
   const { fav, toggle } = useFavClub(club.id, club.nombre);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => {
         localStorage.setItem("adminSelectedClubId", club.id);
         navigate("/miClub");
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          localStorage.setItem("adminSelectedClubId", club.id);
+          navigate("/miClub");
+        }
+      }}
       className="
         group relative w-full rounded-2xl text-left
         bg-card/90 border border-border/60
-        hover:ring-1 hover:ring-primary/40 transition
+        hover:ring-1 hover:ring-[#FE8B02]/60 transition
         shadow-[0_6px_18px_-8px_rgba(0,0,0,.45)]
         px-3 py-3 flex items-center gap-3
       "
@@ -160,7 +169,7 @@ function ClubCardMobile({ club }: { club: ClubLike }) {
           <Share />
         </IconBtn>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -190,9 +199,10 @@ function ClubCardDesktop({ club, variant }: { club: ClubLike; variant: "default"
         <div
           className="
             relative rounded-2xl overflow-hidden
-            bg-card ring-1 ring-border hover:ring-primary/60
-            shadow-[0_0_0_0_rgba(142,42,252,0)]
-            hover:shadow-[0_18px_42px_-10px_rgba(142,42,252,0.35)]
+            bg-card ring-1 ring-border ring-[#FE8B02]/30
+            hover:ring-[#FE8B02]/70
+            shadow-[0_0_0_0_rgba(254,139,2,0)]
+            hover:shadow-[0_18px_42px_-10px_rgba(254,139,2,0.35)]
             transform-gpu transition duration-300
             group-hover:-translate-y-0.5 group-hover:scale-[1.02]
           "
@@ -248,7 +258,7 @@ function ClubCardDesktop({ club, variant }: { club: ClubLike; variant: "default"
           pointer-events-none absolute -inset-[2px] rounded-2xl
           opacity-20 group-hover:opacity-45 transition-opacity duration-300
           blur-[14px]
-          bg-[conic-gradient(at_30%_30%,#8e2afc99_0deg,#00e5ff99_120deg,#ff3dd199_240deg,#8e2afc99_360deg)]
+          bg-[conic-gradient(at_30%_30%,#FE8B0299_0deg,#FFB70399_120deg,#FF340399_240deg,#FE8B0299_360deg)]
           animate-[spin_12s_linear_infinite] motion-reduce:animate-none
         "
         aria-hidden
@@ -266,9 +276,10 @@ function ClubCardDesktop({ club, variant }: { club: ClubLike; variant: "default"
         className="
           relative rounded-2xl overflow-hidden
           bg-card backdrop-blur-md
-          ring-1 ring-border hover:ring-primary/60
-          shadow-[0_0_0_0_rgba(142,42,252,0)]
-          hover:shadow-[0_18px_42px_-10px_rgba(142,42,252,0.35)]
+          ring-1 ring-border ring-[#FE8B02]/30
+          hover:ring-[#FE8B02]/70
+          shadow-[0_0_0_0_rgba(254,139,2,0)]
+          hover:shadow-[0_18px_42px_-10px_rgba(254,139,2,0.35)]
           transform-gpu transition duration-300
           group-hover:-translate-y-0.5 group-hover:scale-[1.02]
         "

@@ -11,6 +11,7 @@ const bodyParser = require('body-parser');
 const https = require('https');
 const dns = require('dns');
 const admin = require('firebase-admin');
+const { FieldValue, Timestamp } = admin.firestore;
 
 if (dns.setDefaultResultOrder) dns.setDefaultResultOrder('ipv4first');
 
@@ -34,6 +35,162 @@ if (!admin.apps.length) {
   }
 }
 const db = admin.firestore();
+
+// ==== Métricas Embudo (server) ====
+async function bumpFunnelServer(eventId, step, extra = {}) {
+  try {
+    const now = new Date();
+    const dateKey = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    const evRef = db.doc(`metrics_funnel/${dateKey}/events/${eventId}`);
+    await evRef.set(
+      { dateKey, eventId, updatedAt: Timestamp.now(), [step]: FieldValue.increment(1), ...extra },
+      { merge: true }
+    );
+    const gRef = db.doc(`metrics_funnel/${dateKey}/global/global`);
+    await gRef.set(
+      { dateKey, updatedAt: Timestamp.now(), [step]: FieldValue.increment(1) },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("[funnel] write failed:", e);
+  }
+}
+
+// ===== Helpers: attendees → tickets + metrics_funnel =====
+function safeInt(v, d = null) { try { const n = Number(v); return Number.isFinite(n) ? n : d; } catch { return d; } }
+function calcAgeFromDOB(dob) {
+  if (!dob) return null; // expects YYYY-MM-DD
+  try {
+    const [y,m,dd] = String(dob).slice(0,10).split('-').map(x => parseInt(x,10));
+    if (!y || !m || !dd) return null;
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    const mo = today.getMonth() + 1;
+    if (mo < m || (mo === m && today.getDate() < dd)) age--;
+    return age >= 0 && age < 130 ? age : null;
+  } catch { return null; }
+}
+function ageBucketFrom(age) {
+  const a = safeInt(age, null);
+  if (a == null) return null;
+  if (a < 18) return 'age_lt18';
+  if (a <= 24) return 'age_18_24';
+  if (a <= 34) return 'age_25_34';
+  if (a <= 44) return 'age_35_44';
+  if (a <= 54) return 'age_45_54';
+  return 'age_55p';
+}
+function genderKey(g) {
+  const s = String(g || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'f' || s.startsWith('fem')) return 'gender_F';
+  if (s === 'm' || s.startsWith('masc')) return 'gender_M';
+  return 'gender_O';
+}
+async function applyAttendeesToTickets(db, { orderId, paidAt }) {
+  const dateKey = (paidAt instanceof Date ? paidAt : new Date(paidAt || Date.now()))
+    .toISOString().slice(0,10).replace(/-/g, '');
+
+  // 1) Leer nominativos: primero ordersWeb/{orderId}/attendees, si no hay, fallback a flowCarts.attendeesRaw
+  let attendees = [];
+  try {
+    const attSnap = await db.collection('ordersWeb').doc(orderId).collection('attendees').get();
+    if (!attSnap.empty) {
+      attendees = attSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a,b) => Number(a.guestIndex||a.id) - Number(b.guestIndex||b.id));
+    }
+  } catch (_) {}
+  if (!attendees.length) {
+    try {
+      const cartSnap = await db.collection('flowCarts').doc(orderId).get();
+      const cart = cartSnap.exists ? (cartSnap.data() || {}) : {};
+
+      const raw = Array.isArray(cart.attendeesRaw) ? cart.attendeesRaw : [];
+      const itemsArr = Array.isArray(cart.items) ? cart.items : [];
+      const firstEventId = (itemsArr[0] && (itemsArr[0].eventId || null)) || (raw[0] && raw[0].eventId) || cart.eventId || null;
+      const firstTicketId = (itemsArr[0] && (itemsArr[0].ticketId || null)) || (raw[0] && raw[0].ticketId) || null;
+
+      // Datos del comprador (cliente 1)
+      const demoBuyer = cart.demographics && cart.demographics.buyer ? cart.demographics.buyer : null;
+      const buyerNombre = cart.buyerName || null;
+      const buyerCorreo = cart.email || (cart.webhook && cart.webhook.payer) || null;
+
+      const buyerAtt = {
+        guestIndex: 1,
+        nombre: buyerNombre || null,
+        correo: buyerCorreo || null,
+        rut: null,
+        telefono: null,
+        sexo: (demoBuyer && demoBuyer.sexo) || null,
+        fecha_nacimiento: (demoBuyer && demoBuyer.fecha_nacimiento) || null,
+        edad:
+          typeof (demoBuyer && demoBuyer.edad) === 'number'
+            ? demoBuyer.edad
+            : null,
+        eventId: firstEventId,
+        ticketId: firstTicketId,
+      };
+
+      // Clientes 2+ desde attendeesRaw
+      const rest = raw.map((x, i) => ({
+        guestIndex: x && x.guestIndex ? Number(x.guestIndex) : i + 2, // 2,3,...
+        nombre: (x && x.nombre) || null,
+        correo: (x && x.correo) || null,
+        rut: (x && x.rut) || null,
+        telefono: (x && x.telefono) || null,
+        sexo: (x && x.sexo) || null,
+        fecha_nacimiento: (x && x.fecha_nacimiento) || null,
+        edad: x && typeof x.edad === 'number' ? x.edad : null,
+        eventId: (x && x.eventId) || firstEventId || null,
+        ticketId: (x && x.ticketId) || firstTicketId || null,
+      }));
+
+      attendees = [buyerAtt, ...rest];
+    } catch (_) {}
+  }
+
+  // 2) Tickets del pedido (ordenados por issuedAt asc, in-memory sort to avoid composite index)
+  const tSnap = await db.collection('tickets').where('orderId', '==', orderId).get();
+  const tickets = tSnap.docs
+    .map(d => ({ id: d.id, ref: d.ref, data: d.data() }))
+    .sort((a, b) => (Number(a.data.issuedAt || 0) - Number(b.data.issuedAt || 0)));
+
+  // 3) Asignar nominativo por posición y escribir en ticket; actualizar metrics_funnel por eventId
+  for (let i = 0; i < tickets.length; i++) {
+    const t = tickets[i];
+    const att = attendees[i] || null;
+    const guestIndex = att?.guestIndex || (i + 1);
+
+    // Preparar bloque attendee
+    const edad = att && (typeof att.edad === 'number' ? att.edad : calcAgeFromDOB(att.fecha_nacimiento));
+    const attendeeBlock = att ? {
+      nombre: att.nombre ?? null,
+      correo: att.correo ?? null,
+      rut: att.rut ?? null,
+      telefono: att.telefono ?? null,
+      sexo: att.sexo ?? null,
+      fecha_nacimiento: att.fecha_nacimiento ?? null,
+      edad: typeof edad === 'number' ? edad : null,
+    } : null;
+
+    await t.ref.set({ attendee: attendeeBlock, guestIndex }, { merge: true });
+
+    // Metrics por evento en la fecha real del pago
+    const evId = att?.eventId || t.data.eventId || null;
+    if (evId) {
+      const evRef = db.doc(`metrics_funnel/${dateKey}/events/${String(evId)}`);
+      const updates = { dateKey, eventId: String(evId), updatedAt: Timestamp.now() };
+      const gk = genderKey(att?.sexo);
+      if (gk) updates[gk] = FieldValue.increment(1);
+      const bucket = ageBucketFrom(edad);
+      if (bucket) updates[bucket] = FieldValue.increment(1);
+      if (gk || bucket) {
+        await evRef.set(updates, { merge: true });
+      }
+    }
+  }
+}
 
 /* =========================
  * ENV / Config
@@ -70,10 +227,15 @@ const flowAxios = axios.create({
 /* =========================
  * Helpers
  * ========================= */
-// Firma tipo Flow: concatena key+value ordenado alfabéticamente
+// Firma tipo Flow: concatena key+value ordenado alfabéticamente (sin nulos/indefinidos)
 function signFlow(params, secretKey) {
-  const orderedKeys = Object.keys(params).sort();
-  const concatenated = orderedKeys.reduce((acc, k) => acc + k + (params[k] ?? ''), '');
+  const clean = Object.fromEntries(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== null)
+      .map(([k, v]) => [k, String(v)])
+  );
+  const orderedKeys = Object.keys(clean).sort();
+  const concatenated = orderedKeys.reduce((acc, k) => acc + k + clean[k], '');
   return crypto.createHmac('sha256', secretKey).update(concatenated, 'utf8').digest('hex');
 }
 const tryParseJSON = (s) => {
@@ -116,6 +278,39 @@ function buildQrData({ ticketId, orderId, eventId, ticketTypeId }) {
   return { text, payload };
 }
 
+/** =========================
+ * Flow status normalizer (best-effort)
+ * ========================= */
+function normalizeFlow(status) {
+  const p = status?.paymentData || status || {};
+  const flowOrder = Number(status?.flowOrder || p.flowOrder || 0) || null;
+  const token = status?.token || p.token || null;
+  const paymentId = String(p.paymentId || token || flowOrder || "").trim() || null;
+  const amount = parseInt(String(status?.amount || p.amount || 0).replace(/[^\d]/g, ""), 10) || 0;
+  const currency = (status?.currency || p.currency || "CLP") || "CLP";
+  // status mapping
+  const s = String(status?.status || p.status || "").toLowerCase();
+  let norm = "pending";
+  if (["paid","approved","success","ok"].includes(s)) norm = "paid";
+  else if (["failed","error","rejected","declined"].includes(s)) norm = "failed";
+  else if (["canceled","cancelled","anulado"].includes(s)) norm = "canceled";
+  const media = p.media || p.method || null;
+  const flowTxId = p.flowTransactionId || p.flow_tx_id || p.transactionId || null;
+  const customerEmail = status?.customerEmail || p.customerEmail || p.email || null;
+  return {
+    paymentId,
+    flowOrder,
+    token,
+    amount,
+    currency,
+    status: norm,
+    rawStatus: s || null,
+    media,
+    flowTxId,
+    customerEmail,
+  };
+}
+
 /* =========================
  * Express
  * ========================= */
@@ -124,7 +319,49 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+
+
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Simple health for funnel with project check
+app.get('/api/funnel/health', (_req, res) => {
+  try {
+    const projectId =
+      (admin.app().options.credential && admin.app().options.credential.projectId) ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      'unknown';
+    const now = new Date();
+    const dateKey = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    return res.json({ ok: true, projectId, dateKey, firestore: !!admin.firestore() });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+/* =======================================================================
+ * POST /api/funnel
+ * Body: { eventId: string, step: "views"|"carts"|"started"|"success", orderId?: string }
+ * Marca contadores en metrics_funnel/{YYYYMMDD}/events/{eventId} y .../global/global
+ * ======================================================================= */
+app.post('/api/funnel', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const eventId = String(body.eventId || '').trim();
+    const step = String(body.step || '').trim().toLowerCase();
+    const orderId = body.orderId ? String(body.orderId) : undefined;
+    const ALLOWED = new Set(['views', 'carts', 'started', 'success']);
+    console.log('[funnel api] step:', step, 'eventId:', eventId, 'orderId:', orderId);
+    if (!eventId || !ALLOWED.has(step)) {
+      return res.status(400).json({ ok: false, error: 'bad_request', details: 'eventId/step inválidos' });
+    }
+    await bumpFunnelServer(eventId, step, orderId ? { orderId } : {});
+    console.log('[funnel api] wrote ok');
+    return res.json({ ok: true });
+  } catch (e) {
+    console.warn('[funnel api] failed:', e);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
 
 /* =======================================================================
  * POST /api/flow/create
@@ -180,6 +417,9 @@ app.post('/api/flow/create', async (req, res) => {
       currency: it.currency || currency || 'CLP',
     }));
 
+    const attendeesRaw = Array.isArray(b.attendees) ? b.attendees : [];
+    const demographics = b.demographics || null;
+
     // Recalcula total en servidor
     const serverSubtotal = sumItems(normItems);
     const rate =
@@ -228,28 +468,51 @@ app.post('/api/flow/create', async (req, res) => {
           serviceFeeRate: rate,
           createdAt: Date.now(),
           status: 'created',
+          attendeesRaw,
+          demographics,
         },
         { merge: true }
       );
 
+    /** Mirror order header for analytics (purchaseOrder) */
+    await db.collection("purchaseOrder").doc(commerceOrder).set(
+      {
+        OrderID: commerceOrder,
+        Token: null,
+        FlowOrder: null,
+        Amount: serverTotal,
+        Currency: currency || "CLP",
+        CustomerEmail: email || null,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        PaymentToken: null,
+        Status: "created",
+      },
+      { merge: true }
+    );
+
     // Crear pago en Flow
-    const params = {
+    const paramsRaw = {
       apiKey: FLOW_API_KEY,
       commerceOrder,
-      subject: subject || `Carrito GoUp • ${normItems.length} ítem(s)`,
-      currency,
+      subject: (subject || `Carrito GoUp • ${normItems.length} item(s)`).toString().trim(),
+      currency: (currency || 'CLP').toString().trim(),
       amount: String(amountInt),
-      email,
-      urlConfirmation: confirmUrl || PUBLIC_CONFIRM_URL,
+      email: String(email).trim(),
+      urlConfirmation: (confirmUrl || PUBLIC_CONFIRM_URL || '').toString().trim() || null,
       urlReturn:
-        returnUrl ||
-        (PUBLIC_RETURN_BASE
-          ? `${PUBLIC_RETURN_BASE}/pago/retorno?order=${encodeURIComponent(commerceOrder)}`
-          : null),
+        (returnUrl ||
+          (PUBLIC_RETURN_BASE
+            ? `${PUBLIC_RETURN_BASE}/pago/retorno?order=${encodeURIComponent(commerceOrder)}`
+            : '')).toString().trim() || null,
     };
+    // Eliminar nulos/indefinidos antes de firmar/enviar
+    const params = Object.fromEntries(
+      Object.entries(paramsRaw).filter(([, v]) => v !== undefined && v !== null && String(v).length > 0)
+    );
     const s = signFlow(params, FLOW_SECRET_KEY);
     const form = new URLSearchParams();
-    for (const k of Object.keys(params)) form.append(k, params[k]);
+    for (const [k, v] of Object.entries(params)) form.append(k, String(v));
     form.append('s', s);
 
     const r = await flowAxios.post('/payment/create', form.toString(), {
@@ -260,10 +523,12 @@ app.post('/api/flow/create', async (req, res) => {
     });
 
     if (r.status < 200 || r.status >= 300) {
+      console.error('[Flow] create rejected:', r.status, '\n', r.data, '\nparams=', params, '\nsigned=', s);
       return res.status(502).json({
-        error: 'Flow rechazó la petición',
+        error: 'Flow rechazo la petición',
         flowStatus: r.status,
         flowBody: r.data,
+        sent: params,
       });
     }
 
@@ -294,7 +559,7 @@ app.post('/api/flow/create', async (req, res) => {
  * Realiza:
  *  - Valida total con flowCarts/{orderId}
  *  - Pre-lee todos los tickets y valida stock
- *  - Crea 1 documento por ítem en `orders` (modelo nuevo)
+ *  - Crea 1 documento por ítem en `finishedOrder` (modelo nuevo)
  *  - Descuenta stock
  *  - Marca flowCarts/{orderId} como paid
  * ======================================================================= */
@@ -337,7 +602,7 @@ app.post('/api/flow/webhook', async (req, res) => {
     );
 
     const cartRef = db.collection('flowCarts').doc(commerceOrder);
-    const ordersColl = db.collection('orders');
+    const ordersColl = db.collection('finishedOrder');
 
     await db.runTransaction(async (tx) => {
       /* ---- LECTURAS ---- */
@@ -489,6 +754,86 @@ app.post('/api/flow/webhook', async (req, res) => {
       );
     });
 
+    // ===== Embudo: marcar success por cada evento del pedido =====
+    try {
+      // Relee items del carrito para determinar eventos involucrados
+      const cartSnap2 = await db.collection('flowCarts').doc(commerceOrder).get();
+      const cart2 = cartSnap2.exists ? (cartSnap2.data() || {}) : {};
+      const rawItems2 = Array.isArray(cart2.items) ? cart2.items : [];
+      const eventIds2 = Array.from(
+        new Set(
+          rawItems2
+            .map((i) => i && i.eventId)
+            .filter(Boolean)
+            .map(String)
+        )
+      );
+      if (eventIds2.length > 0) {
+        await Promise.all(eventIds2.map((eid) => bumpFunnelServer(eid, "success", { orderId: commerceOrder })));
+      }
+    } catch (e) {
+      console.warn("[funnel] webhook marking failed:", e);
+    }
+
+    // === Persist to analytics-friendly collections ===
+    const now = Date.now();
+    const norm = normalizeFlow(statusData);
+    const paymentDocId = norm.paymentId || (norm.token ? `tok_${norm.token}` : `ord_${commerceOrder}`);
+
+    // 1) Orders (header)
+    await db.collection("purchaseOrder").doc(commerceOrder).set(
+      {
+        OrderID: commerceOrder,
+        Token: norm.token || null,
+        FlowOrder: norm.flowOrder,
+        Amount: amountPaidInt,
+        Currency: norm.currency || "CLP",
+        CustomerEmail: norm.customerEmail || null,
+        updated_at: now,
+        PaymentToken: norm.token || null,
+        Status: norm.status,
+      },
+      { merge: true }
+    );
+
+    // 2) Payments (one per Flow payment/attempt)
+    await db.collection("Payments").doc(paymentDocId).set(
+      {
+        PaymentID: paymentDocId,
+        FlowOrder: norm.flowOrder,
+        CommerceOrder: commerceOrder,
+        Token: norm.token || null,
+        Status: norm.status,
+        Currency: norm.currency || "CLP",
+        Amount: amountPaidInt,
+        Media: norm.media || null,
+        Created_at: now,
+        Updated_at: now,
+        Flow_Transaction_id: norm.flowTxId || null,
+        Raw: statusData || null,
+      },
+      { merge: true }
+    );
+
+    // 3) Payment_History (append-only log)
+    const histRef = db.collection("Payment_History").doc();
+    await histRef.set({
+      ID: histRef.id,
+      PaymentID: paymentDocId,
+      Status: norm.status,
+      Message: norm.rawStatus || null,
+      Date: now,
+      CommerceOrder: commerceOrder,
+    });
+
+    // === Aplicar nominativos a tickets + demografía (fecha real del pago) ===
+    try {
+      const paidAtMs = Date.now();
+      await applyAttendeesToTickets(db, { orderId: commerceOrder, paidAt: new Date(paidAtMs) });
+    } catch (e) {
+      console.warn('[attendees→tickets] failed:', e?.message || e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('[Flow] webhook error:', err?.message || err);
@@ -496,9 +841,54 @@ app.post('/api/flow/webhook', async (req, res) => {
   }
 });
 
+// DEBUG ONLY: GET /api/funnel/debug?eventId=EID&step=views
+app.get('/api/funnel/debug', async (req, res) => {
+  try {
+    const eventId = String(req.query.eventId || '').trim();
+    const step = String(req.query.step || '').trim().toLowerCase();
+    const ALLOWED = new Set(['views', 'carts', 'started', 'success']);
+    if (!eventId || !ALLOWED.has(step)) {
+      return res.status(400).json({ ok: false, error: 'bad_request' });
+    }
+    await bumpFunnelServer(eventId, step);
+    return res.json({ ok: true, eventId, step });
+  } catch (e) {
+    console.error('[funnel debug] error:', e);
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+/** ======================================================================
+ * (Future) POST /api/flow/refund
+ * Body: { paymentId, amount, reason }
+ * Creates a record in Reimbursement (actual refund call to Flow can be plugged later).
+ * ====================================================================== */
+// app.post("/api/flow/refund", async (req, res) => {
+//   try {
+//     const { paymentId, amount, reason } = req.body || {};
+//     if (!paymentId || !amount) return res.status(400).json({ ok:false, error:"paymentId/amount requeridos" });
+//     const now = Date.now();
+//     const id = `${paymentId}_${now}`;
+//     await db.collection("Reimbursement").doc(id).set({
+//       ID: id,
+//       PaymentID: paymentId,
+//       flow_reimbursement_id: null,
+//       Amount: Number(amount),
+//       Reason: reason || null,
+//       Status: "requested",
+//       Created_at: now,
+//       Processed_at: null,
+//     });
+//     return res.json({ ok: true, id });
+//   } catch (e) {
+//     console.error("[refund] error:", e);
+//     return res.status(500).json({ ok:false, error:"refund record failed" });
+//   }
+// });
+
 /* =======================================================================
  * GET /api/flow/status?order=CART-123
- * Devuelve el estado agregando los ítems (modelo nuevo: orders planos)
+ * Devuelve el estado agregando los ítems (modelo nuevo: finishedOrder planos)
  * ======================================================================= */
 app.get('/api/flow/status', async (req, res) => {
   const order = String(req.query.order || req.query.orderId || '');
@@ -507,7 +897,7 @@ app.get('/api/flow/status', async (req, res) => {
 
   try {
     // 1) Busca ítems ya materializados
-    const q = await db.collection('orders').where('orderId', '==', id).get();
+    const q = await db.collection('finishedOrder').where('orderId', '==', id).get();
     if (!q.empty) {
       const items = q.docs.map((d) => ({ id: d.id, ...d.data() }));
       // status agregado

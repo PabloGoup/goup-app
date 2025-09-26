@@ -47,7 +47,7 @@ export default function BottomNav() {
         className={({ isActive }) =>
           `flex flex-col items-center justify-center h-14 gap-1
            text-xs font-medium transition
-           ${isActive ? "text-[#8e2afc]" : "text-white/80 hover:text-white"}`
+           ${isActive ? "text-[#FE8B02]" : "text-white/80 hover:text-white"}`
         }
       >
         <Icon className="w-5 h-5" aria-hidden />
@@ -74,7 +74,7 @@ export default function BottomNav() {
             to={isLogged ? "/perfil" : "/login"}
             className={({ isActive }) =>
               `relative flex flex-col items-center justify-center h-14 gap-1
-               ${isActive ? "text-[#8e2afc]" : "text-white/80 hover:text-white"}`
+               ${isActive ? "text-[#FE8B02]" : "text-white/80 hover:text-white"}`
             }
             aria-label={isLogged ? "Perfil" : "Iniciar sesión"}
             title={isLogged ? "Perfil" : "Iniciar sesión"}
@@ -87,7 +87,7 @@ export default function BottomNav() {
                     bg-white/10 transition transform-gpu
                     hover:scale-105 active:scale-95
                     ${isActive
-                      ? "ring-2 ring-[#8e2afc] ring-offset-2 ring-offset-[rgba(20,20,22,0.92)]"
+                      ? "ring-2 ring-[#FE8B02] ring-offset-2 ring-offset-[rgba(20,20,22,0.92)]"
                       : "border border-white/15"}
                   `}
                   style={{

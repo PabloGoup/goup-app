@@ -118,7 +118,7 @@ export default function AddressMapInputGoogle({
           {...register(nameDireccion as any)}
           onFocus={handleFocus}
           placeholder="Escribe la dirección y selecciona una sugerencia…"
-          className="w-full rounded-md border /10 bg-white/5 px-3 py-2  outline-none focus:border-[#8e2afc]"
+          className="w-full rounded-md border /10 bg-white/5 px-3 py-2  outline-none focus:border-[#FE8B02]"
           autoComplete="off"
           value={dir || ""}
           onChange={(e) =>

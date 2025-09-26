@@ -99,7 +99,7 @@ export default function NewVenueModal({
             <RHFFile name="foto" label="Fotografía" />
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="px-4 py-2 rounded border /20" onClick={onClose}>Cancelar</button>
-              <button type="submit" className="px-4 py-2 rounded bg-[#8e2afc]">Guardar</button>
+              <button type="submit" className="px-4 py-2 rounded bg-[#FE8B02]">Guardar</button>
             </div>
           </form>
         </FormProvider>

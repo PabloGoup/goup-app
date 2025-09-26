@@ -64,7 +64,7 @@ export default function VenueSelect({
           ))}
         </ul>
       )}
-      <button type="button" className="text-[#8e2afc] text-sm" onClick={onCreateNew}>
+      <button type="button" className="text-[#FE8B02] text-sm" onClick={onCreateNew}>
         + Nueva localidad
       </button>
     </div>

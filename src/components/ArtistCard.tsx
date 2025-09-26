@@ -40,9 +40,9 @@ export default function ArtistCard({ artist }: { artist: ArtistLite }) {
       <div
         className="
           relative rounded-2xl overflow-hidden
-          bg-card ring-1 ring-border hover:ring-primary/60
-          shadow-[0_0_0_0_rgba(142,42,252,0)]
-          hover:shadow-[0_18px_42px_-10px_rgba(142,42,252,0.35)]
+          bg-card ring-1 ring-border ring-[#FE8B02]/30 hover:ring-[#FE8B02]/70
+          shadow-[0_0_0_0_rgba(254,139,2,0)]
+          hover:shadow-[0_18px_42px_-10px_rgba(254,139,2,0.35)]
           transform-gpu transition duration-300
           group-hover:-translate-y-0.5 group-hover:scale-[1.02]
           cursor-pointer
@@ -65,7 +65,7 @@ export default function ArtistCard({ artist }: { artist: ArtistLite }) {
             <button
               onClick={(e) => { e.stopPropagation(); toggleFav(); }}
               title={fav ? "Quitar de favoritos" : "Agregar a favoritos"}
-              className={`rounded-full p-2 border border-white/15 bg-black/60 hover:bg-black/75 transition ${fav ? "text-pink-400" : "text-white"}`}
+              className={`rounded p-2 border border-white/15 bg-black/60 hover:bg-black/75 transition ${fav ? "text-pink-400" : "text-white"}`}
               aria-label="Favorito"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -76,7 +76,7 @@ export default function ArtistCard({ artist }: { artist: ArtistLite }) {
             <button
               onClick={onShare}
               title="Compartir"
-              className="rounded-full p-2 border border-white/15 bg-black/60 hover:bg-black/75 text-white transition"
+              className="rounded p-2 border border-white/15 bg-black/60 hover:bg-black/75 text-white transition"
               aria-label="Compartir"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
@@ -96,7 +96,7 @@ export default function ArtistCard({ artist }: { artist: ArtistLite }) {
               {artist.generos.slice(0, 2).map((g) => (
                 <span
                   key={g}
-                  className="px-1.5 py-0.5 rounded-full text-[10px] leading-none bg-white/10 border border-white/15"
+                  className="px-1.5 py-0.5 rounded text-[10px] leading-none bg-white/10 border border-white/15"
                 >
                   {g}
                 </span>
