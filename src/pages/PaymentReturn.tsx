@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Firestore, collection, getDocs, query, where } from "firebase/firestore";
 import { db as firebaseDb } from "@/lib/firebase";
 
+const PAY_BASE = (import.meta.env.VITE_PAYMENTS_BASE as string) || ""; // si está vacío, usamos rutas relativas
+
 /* =========================
    Tipos de la orden/ítems
    ========================= */
@@ -104,6 +106,25 @@ function clearLocalCart() {
   } catch {}
 }
 
+type CommitResp = {
+  ok: boolean;
+  status?: string;
+  buyOrder?: string;
+  amount?: number;
+  cardDetail?: any;
+  error?: string;
+};
+
+async function loadFinishedOrder(db: Firestore, orderId: string): Promise<OrderItemDoc[]> {
+  const qq = query(
+    collection(db, "finishedOrder"),
+    where("orderId", "==", orderId)
+  );
+  const snap = await getDocs(qq);
+  const list: OrderItemDoc[] = snap.docs.map(d => ({ ...(d.data() as any) })) as any;
+  return list;
+}
+
 /* =========================
    Página de retorno de pago
    ========================= */
@@ -112,23 +133,66 @@ export default function PaymentReturnPage() {
   const orderId = q.get("order") || "";
   const navigate = useNavigate();
 
+  const tokenWs = q.get("token_ws");
+  const [commitDone, setCommitDone] = useState(false);
+  const [commitErr, setCommitErr] = useState<string | null>(null);
+
   const [items, setItems] = useState<OrderItemDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [clearedOnce, setClearedOnce] = useState(false);
+
+  const [pollTries, setPollTries] = useState(0);
+  const [forceReloadTs, setForceReloadTs] = useState(0);
+
+  // Si Webpay redirige con token_ws, hacemos commit al backend y normalizamos la URL a ?order=...
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!tokenWs || commitDone) return;
+      const GUARD_KEY = `wbp_committed_${tokenWs}`;
+      if (sessionStorage.getItem(GUARD_KEY)) { setCommitDone(true); return; }
+      try {
+        const url = `${PAY_BASE}/api/webpay/commit` || "/api/webpay/commit";
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token_ws: tokenWs })
+        });
+        const data: CommitResp = await res.json().catch(() => ({ ok:false, error:"invalid json" } as any));
+        if (!alive) return;
+        if (res.ok && data.ok) {
+          // Si el server devuelve buyOrder úsala para fijar la URL
+          const nextOrder = data.buyOrder || orderId;
+          // Limpia token_ws de la URL y asegura order
+          const sp = new URLSearchParams(window.location.search);
+          sp.delete("token_ws");
+          if (nextOrder) sp.set("order", String(nextOrder));
+          const next = `${window.location.pathname}?${sp.toString()}`;
+          window.history.replaceState({}, "", next);
+          sessionStorage.setItem(GUARD_KEY, "1");
+          setCommitDone(true);
+        } else {
+          setCommitErr(data?.error || `Commit failed (${res.status})`);
+          setCommitDone(true);
+        }
+      } catch (e: any) {
+        if (!alive) return;
+        setCommitErr(String(e?.message || e));
+        setCommitDone(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, [tokenWs, orderId, commitDone]);
 
   // Carga de ítems de la orden
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!orderId) { setLoading(false); return; }
+      if (!orderId) { setLoading(false); return; } // orderId llegará tras commit si veníamos solo con token_ws
+      setLoading(true);
       try {
-        const qq = query(
-          collection(firebaseDb as Firestore, "finishedOrder"),
-          where("orderId", "==", orderId)
-        );
-        const snap = await getDocs(qq);
+        const list = await loadFinishedOrder(firebaseDb as Firestore, orderId);
         if (!alive) return;
-        const list: OrderItemDoc[] = snap.docs.map(d => ({ ...(d.data() as any) })) as any;
         setItems(list);
       } finally {
         if (alive) setLoading(false);
@@ -137,12 +201,89 @@ export default function PaymentReturnPage() {
     return () => { alive = false; };
   }, [orderId]);
 
-  // Deriva estado
+  // Polling para obtener estado cuando no hay items y tenemos orderId
+  useEffect(() => {
+    if (!orderId || items.length > 0) return;
+
+    let alive = true;
+    let tries = 0;
+    let timeoutId: any;
+
+    const poll = async () => {
+      if (!alive) return;
+      tries++;
+      setPollTries(tries);
+      try {
+        const url = `${PAY_BASE}/api/flow/status?order=${encodeURIComponent(orderId)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Status fetch failed (${res.status})`);
+        const data = await res.json();
+        if (!alive) return;
+
+        if (Array.isArray(data?.data?.items) && data.data.items.length > 0) {
+          // Map items to OrderItemDoc
+          const newItems: OrderItemDoc[] = data.data.items.map((it: any) => ({
+            orderId: it.orderId,
+            status: it.status,
+            paidAt: it.paidAt,
+            email: it.email,
+            buyerUid: it.buyerUid,
+            buyerName: it.buyerName,
+            provider: it.provider,
+            token: it.token,
+            flowOrder: it.flowOrder,
+            currency: it.currency,
+            eventId: it.eventId,
+            eventName: it.eventName,
+            eventImage: it.eventImage,
+            eventStart: it.eventStart,
+            eventEnd: it.eventEnd,
+            ticketId: it.ticketId,
+            ticketName: it.ticketName,
+            ticketPath: it.ticketPath,
+            qty: it.qty,
+            price: it.price,
+            lineTotal: it.lineTotal,
+            createdAt: it.createdAt,
+            updatedAt: it.updatedAt,
+          }));
+          setItems(newItems);
+          if (data.data.status === "paid") {
+            clearLocalCart();
+          }
+        } else if (data.data.status === "paid") {
+          // Reattempt loadFinishedOrder immediately
+          const list = await loadFinishedOrder(firebaseDb as Firestore, orderId);
+          if (!alive) return;
+          if (list.length > 0) {
+            setItems(list);
+            clearLocalCart();
+          } else if (tries < 12) {
+            timeoutId = setTimeout(poll, 1500);
+          }
+        } else if (tries < 12) {
+          timeoutId = setTimeout(poll, 1500);
+        }
+      } catch {
+        if (tries < 12) {
+          timeoutId = setTimeout(poll, 1500);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      alive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [orderId, items.length, forceReloadTs]);
+
+  // Si la orden está 100% pagada, limpiar carrito una sola vez
   const allPaid = items.length > 0 && items.every(i => i.status === "paid");
   const anyFailed = items.some(i => i.status === "failed");
   const anyPending = items.length > 0 && items.some(i => i.status === "pending");
 
-  // Si la orden está 100% pagada, limpiar carrito una sola vez
   useEffect(() => {
     if (allPaid && !clearedOnce) {
       clearLocalCart();
@@ -154,7 +295,7 @@ export default function PaymentReturnPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
         <p>No se indicó orden.</p>
-        <Link to="/mis-tickets" className="text-[#cbb3ff] underline">
+        <Link to="/mis-tickets" className="text-[#FE8B02] underline">
           Volver a mis tickets
         </Link>
       </div>
@@ -176,8 +317,21 @@ export default function PaymentReturnPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <p>No hay ítems para la orden {orderId}.</p>
-        <Link to="/mis-tickets" className="text-[#cbb3ff] underline">
+        <p>No hay ítems para la orden {orderId || "(sin orden)"}.</p>
+        {tokenWs && !orderId && (
+          <p className="text-sm text-white/70 mt-2">Volviste desde Webpay. Confirmamos el pago automáticamente; si no ves la orden aún, espera unos segundos y recarga.</p>
+        )}
+        {commitErr && (
+          <p className="text-sm text-red-300 mt-2">Error al confirmar el pago: {commitErr}</p>
+        )}
+        <button
+          onClick={() => setForceReloadTs(Date.now())}
+          className="text-[#FE8B02] underline mt-3 inline-block bg-transparent border-none cursor-pointer p-0"
+          type="button"
+        >
+          Reintentar carga
+        </button>
+        <Link to="/mis-tickets" className="text-[#FE8B02] underline mt-3 inline-block ml-4">
           Volver a mis tickets
         </Link>
       </div>
@@ -199,7 +353,7 @@ export default function PaymentReturnPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/mis-tickets"
-            className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15 border border-white/15 text-sm"
+            className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15 border border-white/15 text-sm text-[#FE8B02] underline"
           >
             Ir a mis tickets
           </Link>

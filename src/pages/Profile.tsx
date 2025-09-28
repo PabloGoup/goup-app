@@ -17,9 +17,6 @@ import {
   query,
   where,
   getDocs,
-  onSnapshot,
-  orderBy,
-  limit,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -35,7 +32,8 @@ import { MAIN_GENRES, ALL_SUBGENRES } from "@/lib/musicGenres";
 
 // Inputs
 import { RHFInput, RHFFile } from "@/components/form/control";
-import { useController, useWatch } from "react-hook-form";
+import { useWatch } from "react-hook-form";
+
 // =========================
 // Regiones y ciudades de Chile
 // =========================
@@ -90,6 +88,7 @@ import {
 
 // Iconos
 import { CalendarDays, CheckCircle2, Clock3, User2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import ModalConfirm from "@/components/ModalConfirm";
 
@@ -109,7 +108,7 @@ const profileSchema = z.object({
   city_base: z.string().optional().or(z.literal("")),
   search_radius_km: z.coerce.number().min(1, "El radio mínimo es 1 km").optional().nullable(),
   fav_main_genres: z.array(z.string()).optional().default([]),
-  // Notificaciones (solo push)
+  // Notificaciones (puede quedar en schema aunque no se muestre en UI)
   noti_push: z.boolean().optional().default(true),
 });
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -158,29 +157,8 @@ function RHFSelectShadcn({
 }
 
 /* =========================
- * RHF Helpers: Checkbox & MultiSelect
+ * RHF Helpers (MultiSelect)
  * ========================= */
-function RHFCheckbox({ name, label }: { name: string; label: string }) {
-  const { control } = useFormContext();
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={!!field.value}
-            onChange={(e) => field.onChange(e.target.checked)}
-            className="h-4 w-4 rounded border-white/20 bg-transparent"
-          />
-          <span>{label}</span>
-        </label>
-      )}
-    />
-  );
-}
-
 function RHFMultiSelect({
   name,
   label,
@@ -206,7 +184,7 @@ function RHFMultiSelect({
           // --- Toggle chips UI ---
           ({ field }) => (
             <>
-              {/* Toggle chips (no requiere Ctrl/Cmd) */}
+              {/* Toggle chips */}
               <div className="flex flex-wrap gap-2">
                 {(options || []).map((op) => {
                   const selected: string[] = Array.isArray(field.value) ? field.value : [];
@@ -218,7 +196,7 @@ function RHFMultiSelect({
                       className={`px-2 py-1 rounded-full text-xs border transition ${
                         isActive
                           ? "bg-[#FE8B02]/20 border-[#FE8B02]/50 text-white"
-                          : "bg-white/5 border-white/15 text-white/80 hover:bg-white/10"
+                          : "bg-white/5 border-white/15 text-white/80 hover:bg-[#FE8B02]/10"
                       }`}
                       aria-pressed={isActive}
                       onClick={() => {
@@ -235,10 +213,10 @@ function RHFMultiSelect({
                 })}
               </div>
 
-              {/* Hidden input to satisfy RHF and forms */}
+              {/* Hidden input */}
               <input type="hidden" name={name} value={(Array.isArray(field.value) ? field.value : []).join(',')} readOnly />
 
-              {/* Selected chips preview (removibles) */}
+              {/* Selected chips preview */}
               {Array.isArray(field.value) && field.value.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {field.value.map((val: string) => {
@@ -283,34 +261,34 @@ function StatBadge({
   icon: Icon,
   label,
   value,
+  href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: React.ReactNode;
+  href?: string;
 }) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1">
-      <Icon className="h-4 w-4 text-primary" />
+  const classes =
+    "inline-flex items-center gap-2 rounded-full border border-[#FE8B02]/30 bg-[#FE8B02]/10 px-3 py-1 transition hover:bg-[#FE8B02]/15";
+  const inner = (
+    <>
+      <Icon className="h-4 w-4 text-[#FE8B02]" />
       <span className="text-xs text-foreground/80">{label}:</span>
       <span className="text-xs font-semibold">{value}</span>
-    </div>
+    </>
+  );
+  return href ? (
+    <Link to={href} className={classes} aria-label={`${label}: ${value}`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={classes}>{inner}</div>
   );
 }
 
 /* =========================
  * Página
  * ========================= */
-type NotificationItem = {
-  id: string;
-  title: string;
-  message: string;
-  eventId?: string | null;
-  eventName?: string | null;
-  eventImage?: string | null;
-  createdAt?: number | null;
-  read?: boolean;
-};
-
 export default function ProfilePage() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth();
 
@@ -319,15 +297,14 @@ export default function ProfilePage() {
   const [editMode, setEditMode] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   const [record, setRecord] = useState<any>(null);
   const originalRef = useRef<ProfileForm | null>(null);
 
-  const [totalEventos, setTotalEventos] = useState(0);
-  const [realizados, setRealizados] = useState(0);
+  // Contadores basados en tickets y favoritos
+  const [totalTickets, setTotalTickets] = useState(0);
+  const [usedTickets, setUsedTickets] = useState(0);
+  const [upcomingTickets, setUpcomingTickets] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
 
   const methods = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -391,81 +368,92 @@ export default function ProfilePage() {
     })();
   }, [authLoading, user, methods]);
 
-  // Centro de notificaciones: suscripción en vivo a userNotifications/{uid}/items
-  useEffect(() => {
-    if (!user?.uid) return;
-    const colRef = collection(firebaseDb as Firestore, "userNotifications", user.uid, "items");
-    const q = query(colRef, orderBy("createdAt", "desc"), limit(100));
-    const unsub = onSnapshot(q, (snap) => {
-      const list: NotificationItem[] = snap.docs.map((d) => {
-        const data: any = d.data();
-        return {
-          id: d.id,
-          title: data.title || data.eventName || "Nueva coincidencia",
-          message: data.message || "",
-          eventId: data.eventId ?? null,
-          eventName: data.eventName ?? null,
-          eventImage: data.eventImage ?? null,
-          createdAt: typeof data.createdAt === "number" ? data.createdAt : (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : null),
-          read: !!data.read,
-        };
-      });
-      setNotifications(list);
-    });
-    return () => unsub();
-  }, [user?.uid]);
-
-  /* = Estadísticas de eventos = */
+  /* = Estadísticas: tickets comprados / usados / por asistir + favoritos = */
   useEffect(() => {
     (async () => {
       if (!record?.uid) return;
       try {
-        const q = query(
-          collection(firebaseDb as Firestore, "Eventos"),
-          where("uid_usersWeb", "==", "/usersWeb/" + record.uid)
+        // ---- Tickets del comprador actual ----
+        const tq = query(
+          collection(firebaseDb as Firestore, "tickets"),
+          where("buyerUid", "==", record.uid)
         );
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => d.data());
-        setTotalEventos(list.length);
+        const tsnap = await getDocs(tq);
+        const tickets = tsnap.docs.map((d) => d.data() as any);
 
         const now = Date.now();
-        const pastCount = list.filter((ev: any) => {
-          const t = ev.horaCierre || ev.horaInicio || "00:00";
-          return now > new Date(`${ev.fecha}T${t}`).getTime();
+        setTotalTickets(tickets.length);
+
+        // usados (checked-in/used)
+        const used = tickets.filter((t) => {
+          const s = String(t.status || "").toLowerCase();
+          return s === "used" || s === "checked_in" || s === "checkedin" || s === "escaneado";
         }).length;
-        setRealizados(pastCount);
+        setUsedTickets(used);
+
+        // por asistir (no usados, no cancelados/refundados y, si hay fecha, que no haya pasado)
+        const upcoming = tickets.filter((t) => {
+          const s = String(t.status || "").toLowerCase();
+          if (s === "used" || s === "checked_in" || s === "checkedin" || s === "escaneado") return false;
+          if (s === "cancelled" || s === "canceled" || s === "refunded") return false;
+
+          const end =
+            t.eventEnd ||
+            t.event_end ||
+            t.eventDate ||
+            t.event_start ||
+            null;
+
+          let endMs: number | null = null;
+          if (typeof end === "string") {
+            const parsed = Date.parse(end);
+            endMs = Number.isNaN(parsed) ? null : parsed;
+          } else if (end?.seconds) {
+            endMs = end.seconds * 1000;
+          }
+
+          if (endMs != null && endMs < now) return false;
+          return true;
+        }).length;
+        setUpcomingTickets(upcoming);
+
+        // ---- Favoritos (compatibilidad con distintos esquemas) ----
+        let favCount = 0;
+
+        // Opción A: colección global "favs"
+        try {
+          const favQ = query(
+            collection(firebaseDb as Firestore, "favs"),
+            where("uid", "==", record.uid)
+          );
+          const favSnap = await getDocs(favQ);
+          favCount = Math.max(favCount, favSnap.size);
+        } catch {}
+
+        // Opción B: colección global "favorites"
+        try {
+          const favQ2 = query(
+            collection(firebaseDb as Firestore, "favorites"),
+            where("uid", "==", record.uid)
+          );
+          const favSnap2 = await getDocs(favQ2);
+          favCount = Math.max(favCount, favSnap2.size);
+        } catch {}
+
+        // Opción C: subcolección en el usuario
+        try {
+          const favSubSnap = await getDocs(
+            collection(firebaseDb as Firestore, `usersWeb/${record.uid}/favorites`)
+          );
+          favCount = Math.max(favCount, favSubSnap.size);
+        } catch {}
+
+        setFavoritesCount(favCount);
       } catch (e) {
         console.error(e);
       }
     })();
   }, [record]);
-
-  const markAsRead = async (id: string) => {
-    if (!user?.uid) return;
-    const ref = doc(firebaseDb as Firestore, "userNotifications", user.uid, "items", id);
-    try {
-      await updateDoc(ref, { read: true });
-    } catch (e) {
-      console.error(e);
-      toast.error("No se pudo marcar como leído");
-    }
-  };
-
-  const markAllAsRead = async () => {
-    if (!user?.uid || notifications.length === 0) return;
-    try {
-      await Promise.all(
-        notifications.filter(n => !n.read).map(n => {
-          const ref = doc(firebaseDb as Firestore, "userNotifications", user.uid, "items", n.id);
-          return updateDoc(ref, { read: true });
-        })
-      );
-      toast.success("Notificaciones marcadas como leídas");
-    } catch (e) {
-      console.error(e);
-      toast.error("No se pudieron marcar todas");
-    }
-  };
 
   /* = Helpers = */
   const avatarUrl = useMemo(() => record?.photo_url ?? "", [record]);
@@ -473,7 +461,6 @@ export default function ProfilePage() {
   const uploadAvatar = async (file: File): Promise<string> => {
     const storage = getStorage();
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-   
     const path = `avatars/${user!.uid}/avatar.${ext}`;
     const ref = storageRef(storage, path);
     await uploadBytes(ref, file);
@@ -527,7 +514,6 @@ export default function ProfilePage() {
 
   const displayName = record?.nombre || "Usuario";
   const email = record?.email || "";
-  const futuros = Math.max(0, totalEventos - realizados);
   const fechaNacimientoFormateada = record?.fecha_nacimiento?.seconds
     ? new Date(record.fecha_nacimiento.seconds * 1000).toISOString().split("T")[0]
     : record?.fecha_nacimiento || "";
@@ -552,7 +538,7 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* ===== HERO estilo Artista (blur + máscaras + gradientes) ===== */}
-      <section className="relative isolate w-full overflow-visible -mb-24 md:-mb-32">
+      <section className="relative isolate w-full overflow-visible mb-0">
         <div
           className="pointer-events-none absolute -inset-x-40 -top-32 -bottom-32 -z-10 overflow-visible"
           style={{
@@ -575,7 +561,7 @@ export default function ProfilePage() {
             </>
           ) : (
             <>
-              <div className="absolute inset-0 bg-gradient-to-br from-[#241237] via-[#371a5e] to-[#FE8B02]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#FE8B02] via-[#FF6A03] to-[#FF3403]" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/60 to-black/80" />
             </>
           )}
@@ -601,56 +587,35 @@ export default function ProfilePage() {
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">{displayName}</h1>
-               
               </div>
               {email && <p className="mt-1 text-white/80">{email}</p>}
 
               {/* Badges */}
               <div className="mt-4 flex flex-wrap gap-2">
-                <StatBadge icon={CalendarDays} label="Eventos" value={totalEventos} />
-                <StatBadge icon={CheckCircle2} label="Realizados" value={realizados} />
-                <StatBadge icon={Clock3} label="Próximos" value={futuros} />
-                <StatBadge icon={User2} label="Rol" value={displayRol(dbUser?.rol ?? "")} />
+                <StatBadge icon={CheckCircle2} label="Asistidos" value={usedTickets} href="/mis-tickets?tab=used" />
+                <StatBadge icon={CalendarDays} label="Tickets comprados" value={totalTickets} href="/mis-tickets?tab=all" />
+                <StatBadge icon={Clock3} label="Por asistir" value={upcomingTickets} href="/mis-tickets?tab=upcoming" />
+                <StatBadge icon={User2} label="Favoritos" value={favoritesCount} href="/favoritos" />
               </div>
 
               {/* Barra de acciones (CTA) */}
               <div className="mt-6">
-                <div className="rounded-xl border border-white/15 bg-black/40 backdrop-blur px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-white/70 leading-none">Acciones</p>
-                    <p className="text-base font-semibold truncate">Gestiona tu cuenta</p>
-                  </div>
-                  <div className="flex rounded-xl gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="relative rounded"
-                      onClick={() => setNotifOpen(true)}
-                    >
-                      Notificaciones
-                      {unreadCount > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center text-[10px] font-bold leading-none rounded-full bg-[#FE8B02] text-white px-1.5 py-0.5">
-                          {unreadCount}
-                        </span>
-                      )}
+                <div className="flex flex-wrap gap-2">
+                  {!editMode && (
+                    <Button size="sm" onClick={() => setEditMode(true)} className="rounded">
+                      Editar perfil
                     </Button>
-
-                    {!editMode && (
-                      <Button size="sm" onClick={() => setEditMode(true)} className="rounded">
-                        Editar perfil
-                      </Button>
-                    )}
-                    <Button size="sm" className="rounded" variant="outline" onClick={signOut}>
-                      Cerrar sesión
-                    </Button>
-                  </div>
+                  )}
+                  <Button size="sm" className="rounded" variant="outline" onClick={signOut}>
+                    Cerrar sesión
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </section>
-      <div className="h-24 md:h-32" />
+      <div className="h-4 md:h-6" />
 
       {/* ===== CONTENIDO ===== */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 pt-8 md:pt-12 pb-10 md:pb-14">
@@ -686,16 +651,6 @@ export default function ProfilePage() {
                   <KeyRow k="Ciudad base" v={record.city_base || "—"} />
                   <KeyRow k="Radio de búsqueda" v={(record.search_radius_km ?? 20) + " km"} />
                   <KeyRow k="Géneros favoritos" v={(record.fav_main_genres?.join(", ") || "—")} />
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/[0.03] rounded-xl border /10">
-                <CardHeader>
-                  <CardTitle>Notificaciones</CardTitle>
-                  <CardDescription>Elige dónde y qué recibir.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <KeyRow k="Push" v={record.noti_push ? "Activadas" : "Desactivadas"} />
                 </CardContent>
               </Card>
 
@@ -756,7 +711,7 @@ export default function ProfilePage() {
                 <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <p className="mb-2 text-sm text-muted-foreground">Vista previa actual</p>
-                    <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-primary/60 shadow-[0_8px_30px_rgba(142,42,252,0.35)]">
+                    <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-[#FE8B02]/60 shadow-[0_8px_30px_rgba(254,139,2,0.35)]">
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
                       ) : (
@@ -808,17 +763,6 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card className="/10 bg-white/[0.03] border /10">
-                <CardHeader>
-                  <CardTitle>Notificaciones</CardTitle>
-                  <CardDescription>Elige canales y tipos.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4">
-                  <RHFCheckbox name="noti_push" label="Recibir notificaciones PUSH" />
-                  <p className="text-xs text-muted-foreground">Las notificaciones se enviarán por cualquier subgénero perteneciente a tus géneros principales seleccionados.</p>
-                </CardContent>
-              </Card>
-
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   Cancelar
@@ -833,90 +777,6 @@ export default function ProfilePage() {
       </div>
 
       {/* Modal de confirmación */}
-      {/* Centro de notificaciones (modal) */}
-      {notifOpen && (
-        <div className="fixed inset-0 z-[90]">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setNotifOpen(false)} />
-          <div
-            className="absolute inset-x-4 md:inset-x-auto md:right-8 top-20 md:top-24 z-[91] w-auto md:w-[560px] rounded-xl border border-white/15 bg-neutral-900 shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <div>
-                <h3 className="font-semibold">Centro de notificaciones</h3>
-                <p className="text-xs text-white/70">
-                  Coincidencias de eventos con tus géneros y dentro de tu radio de búsqueda.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={markAllAsRead} disabled={unreadCount === 0}>
-                  Marcar todas como leídas
-                </Button>
-                <Button size="sm" onClick={() => setNotifOpen(false)}>Cerrar</Button>
-              </div>
-            </div>
-
-            <div className="max-h-[60vh] overflow-y-auto p-2">
-              {notifications.length === 0 ? (
-                <div className="p-6 text-sm text-white/70">
-                  Aún no tienes notificaciones. Cuando haya eventos que coincidan con tus preferencias aparecerán aquí.
-                </div>
-              ) : (
-                <ul className="divide-y divide-white/10">
-                  {notifications.map((n) => (
-                    <li key={n.id} className={`p-3 flex gap-3 ${!n.read ? "bg-white/[0.03]" : ""}`}>
-                      <figure className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-white/5">
-                        {n.eventImage ? (
-                          <img src={n.eventImage} alt={n.eventName || ""} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full grid place-items-center text-[10px] text-white/60">Evento</div>
-                        )}
-                      </figure>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-semibold truncate">{n.title}</p>
-                            <p className="text-sm text-white/80 truncate">{n.message}</p>
-                          </div>
-                          {!n.read && (
-                            <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#FE8B02]/20 text-[#cbb3ff] border border-[#FE8B02]/40">
-                              Nuevo
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center justify-between text-xs text-white/60">
-                          <span>
-                            {n.createdAt ? new Date(n.createdAt).toLocaleString("es-CL") : "—"}
-                          </span>
-                          <div className="flex gap-2">
-                            {n.eventId && (
-                              <a
-                                href={`/evento/${n.eventId}`}
-                                className="text-[#cbb3ff] hover:underline"
-                              >
-                                Ver evento
-                              </a>
-                            )}
-                            {!n.read && (
-                              <button
-                                className="text-[#cbb3ff] hover:underline"
-                                onClick={() => markAsRead(n.id)}
-                              >
-                                Marcar leído
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       {confirmOpen && (
         <ModalConfirm
           title="¿Guardar los cambios?"
@@ -933,12 +793,13 @@ export default function ProfilePage() {
 /* ======= Helpers UI ======= */
 function KeyRow({ k, v }: { k: string; v?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b /10 py-2 text-sm">
+    <div className="flex items-center justify-between border-b border-white/10 py-2 text-sm">
       <span className="text-muted-foreground">{k}</span>
       <span className="text-right">{v ?? "—"}</span>
     </div>
   );
 }
+
 // Componente dependiente para ciudad según región seleccionada
 function RegionCitySelect() {
   const { control, setValue } = useFormContext<ProfileForm>();

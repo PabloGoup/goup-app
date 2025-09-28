@@ -1,5 +1,6 @@
 // src/pages/CheckIn.tsx
 import React, { useEffect, useRef, useState } from "react";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
@@ -17,6 +18,10 @@ type Lookup = {
     ticketTypeId?: string | null;
     buyerUid?: string | null;
     email?: string | null;
+    eventName?: string | null;
+    buyerName?: string | null;
+    buyerRut?: string | null;
+    eventStart?: string | null;
   };
   error?: string;
 };
@@ -26,6 +31,8 @@ export default function CheckIn() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<Lookup | null>(null);
+  const [hydratedEventDateFor, setHydratedEventDateFor] = useState<string | null>(null);
+  const [hydratedTicketFor, setHydratedTicketFor] = useState<string | null>(null);
 
   // Cámara (BarcodeDetector nativo si está)
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -79,6 +86,91 @@ export default function CheckIn() {
     return () => stop();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      const evId = result?.ticket?.eventId;
+      const missing = !result?.ticket?.eventStart && !!evId;
+      if (!missing) return;
+      if (hydratedEventDateFor === evId) return; // avoid duplicate fetches
+      try {
+        const db = getFirestore();
+        const ref = doc(db, "evento", evId!);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d: any = snap.data();
+          let raw = d?.start ?? d?.fechaInicio ?? d?.dateStart ?? d?.startDate ?? null;
+          let iso: string | null = null;
+          if (!raw) {
+            // some schemas store nested schedule { start }
+            raw = d?.schedule?.start ?? null;
+          }
+          if (raw) {
+            if (typeof raw === "string") {
+              iso = raw;
+            } else if (raw?.toDate) {
+              iso = raw.toDate().toISOString();
+            } else if (typeof raw?.seconds === "number") {
+              iso = new Date(raw.seconds * 1000).toISOString();
+            }
+          }
+          if (iso) {
+            setResult((prev) => (prev && prev.ticket ? { ...prev, ticket: { ...prev.ticket, eventStart: iso } } : prev));
+            setHydratedEventDateFor(evId!);
+          }
+        }
+      } catch (err) {
+        console.warn("No se pudo hidratar fecha del evento", err);
+      }
+    })();
+  }, [result?.ticket?.eventId, result?.ticket?.eventStart, hydratedEventDateFor]);
+
+  useEffect(() => {
+    (async () => {
+      const tid = result?.ticket?.id;
+      if (!tid) return;
+      // hydrate only if some key fields are missing
+      const needsBuyer = !result?.ticket?.buyerName || !result?.ticket?.buyerRut || !result?.ticket?.eventName || !result?.ticket?.eventStart;
+      if (!needsBuyer) return;
+      if (hydratedTicketFor === tid) return; // avoid duplicate fetches
+      try {
+        const db = getFirestore();
+        const ref = doc(db, "tickets", tid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d: any = snap.data();
+          const buyerName = d?.buyerName ?? d?.attendee?.nombre ?? d?.attendeesRaw?.[0]?.nombre ?? null;
+          const buyerRut = d?.buyerRut ?? d?.attendee?.rut ?? d?.attendeesRaw?.[0]?.rut ?? null;
+          const eventName = d?.eventName ?? null;
+          // Try multiple possible shapes for start date
+          let eventStart: string | null = d?.eventStart ?? null;
+          if (!eventStart) {
+            const raw = d?.event?.start ?? d?.schedule?.start ?? null;
+            if (typeof raw === 'string') eventStart = raw;
+            else if (raw?.toDate) eventStart = raw.toDate().toISOString();
+            else if (typeof raw?.seconds === 'number') eventStart = new Date(raw.seconds * 1000).toISOString();
+          }
+
+          setResult((prev) => {
+            if (!prev || !prev.ticket) return prev;
+            return {
+              ...prev,
+              ticket: {
+                ...prev.ticket,
+                buyerName: prev.ticket.buyerName || buyerName || null,
+                buyerRut: prev.ticket.buyerRut || buyerRut || null,
+                eventName: prev.ticket.eventName || eventName || null,
+                eventStart: prev.ticket.eventStart || eventStart || null,
+              },
+            };
+          });
+          setHydratedTicketFor(tid);
+        }
+      } catch (err) {
+        console.warn('No se pudo hidratar datos del ticket', err);
+      }
+    })();
+  }, [result?.ticket?.id, result?.ticket?.buyerName, result?.ticket?.buyerRut, result?.ticket?.eventName, result?.ticket?.eventStart, hydratedTicketFor]);
+
   async function doLookup(c: string) {
     setBusy(true);
     setMsg(null);
@@ -107,7 +199,7 @@ export default function CheckIn() {
       });
       const data = await r.json();
       if (r.ok && data.ok) {
-        setMsg("✅ Ticket marcado como USADO");
+        setMsg("✅ Ticket marcado como UTILIZADO");
         // refrescar estado
         doLookup(c);
       } else {
@@ -119,6 +211,14 @@ export default function CheckIn() {
       setBusy(false);
     }
   }
+
+  function doClear() {
+    setCode("");
+    setResult(null);
+    setMsg(null);
+  }
+
+  const prettyStatus = result?.ticket?.status === 'used' ? 'Utilizado' : (result?.ticket?.status === 'valid' ? 'Valido' : (result?.ticket?.status === 'void' ? 'Anulado' : '—'));
 
   return (
     <main className="max-w-xl mx-auto p-4">
@@ -151,9 +251,13 @@ export default function CheckIn() {
 
       {result?.ok && result.ticket && (
         <div className="rounded-lg border border-white/10 p-3 text-sm">
+          <div><b>Evento:</b> {result.ticket.eventName || "—"}</div>
           <div><b>ID:</b> {result.ticket.id}</div>
-          <div><b>Estado:</b> {result.ticket.status}</div>
+          <div><b>Estado:</b> {prettyStatus}</div>
           {result.ticket.usedAt ? <div><b>Usado:</b> {new Date(result.ticket.usedAt).toLocaleString("es-CL")}</div> : null}
+          <div><b>Comprador:</b> {result.ticket.buyerName || "—"}</div>
+          <div><b>RUT:</b> {result.ticket.buyerRut || "—"}</div>
+          <div><b>Fecha del evento:</b> {result.ticket.eventStart ? new Date(result.ticket.eventStart).toLocaleString('es-CL') : '—'}</div>
           <div className="text-white/70 mt-2">
             <div>Orden: {result.ticket.orderId || "—"}</div>
             <div>Evento: {result.ticket.eventId || "—"}</div>
@@ -161,6 +265,10 @@ export default function CheckIn() {
           </div>
         </div>
       )}
+
+      <button className="mt-3 px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={doClear}>
+        Limpiar
+      </button>
     </main>
   );
 }

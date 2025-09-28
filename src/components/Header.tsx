@@ -195,6 +195,12 @@ export default function Header() {
       `}</style>
       {/* ======= DESKTOP ======= */}
       <div className="hidden md:flex items-center h-16 px-6 relative">
+      <span
+              className="absolute -inset-x-3 -inset-y-2 rounded-full
+                        bg-[radial-gradient(closest-side,rgba(254,139,2,0.65),rgba(0,0,0,0)_50%)]
+                         blur-md opacity-25 group-hover:opacity-25 transition-opacity"
+              aria-hidden
+            />
         {/* Grupo centrado: nav izq + LOGO + nav der */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 pointer-events-auto">
           <nav className="flex items-center gap-3">
@@ -208,17 +214,12 @@ export default function Header() {
                        text-3xl font-black tracking-tight transition-transform duration-200 hover:scale-110"
             aria-label="GoUp - Inicio"
           >
-            <span
-              className="absolute -inset-x-3 -inset-y-2 rounded-full
-                        bg-[radial-gradient(closest-side,rgba(254,139,2,0.65),rgba(0,0,0,0)_60%)]
-                         blur-md opacity-50 group-hover:opacity-50 transition-opacity"
-              aria-hidden
-            />
+          
             <span className="relative z-10 leading-none drop-shadow-[0_2px_10px_rgba(254,139,2,0.35)]">
               Go<span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Up</span>
             </span>
           </Link>
-
+         
           <nav className="flex items-center gap-3">
             <NavItem to="/artistas" icon={<User className="w-4 h-4" />}>Artistas</NavItem>
             <NavItem to="/favoritos" icon={<MdFavorite className="w-4 h-4" />}>Favoritos</NavItem>

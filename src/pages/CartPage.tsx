@@ -152,6 +152,7 @@ type ProfileForm = {
   nombre: string;
   rut: string;
   direccion: string;
+  telefono?: string;
   email: string;
   sexo: "Masculino" | "Femenino" | "Otro" | "";
   fecha_nacimiento: string; // YYYY-MM-DD
@@ -160,6 +161,7 @@ const emptyProfile: ProfileForm = {
   nombre: "",
   rut: "",
   direccion: "",
+  telefono: "",
   email: "",
   sexo: "",
   fecha_nacimiento: "",
@@ -268,6 +270,7 @@ export default function CartPage() {
             nombre: d.nombre || d.name || (user as any)?.displayName || "",
             rut: d.rut || "",
             direccion: d.direccion || d.address || "",
+            telefono: d.telefono || d.phone || "",
             email: d.email || user.email || "",
             sexo: d.sexo || d.gender || "",
             fecha_nacimiento: toYYYYMMDD(d.fecha_nacimiento || d.birthdate || d.birthday),
@@ -277,6 +280,7 @@ export default function CartPage() {
             ...p,
             email: user.email || "",
             nombre: (user as any)?.displayName || "",
+            telefono: "",
           }));
         }
       } finally {
@@ -480,7 +484,7 @@ export default function CartPage() {
     if (any.mayoresDe18 === true || any.mayores18 === true) return 18;
     return null;
   }
-  const FLOW_BASE = import.meta.env.VITE_FLOW_BASE || "";
+  // Webpay: usamos un endpoint del backend propio
   const startCartPaymentCore = async () => {
     if (!user?.email) {
       toast.error("Inicia sesión para completar la compra.");
@@ -517,12 +521,8 @@ export default function CartPage() {
         `/pago/retorno?order=${encodeURIComponent(orderId)}`,
         window.location.origin
       ).toString();
-      const confirmUrl = import.meta.env.VITE_PUBLIC_CONFIRM_URL as string;
-      if (!confirmUrl || !/^https:\/\/.*ngrok-free\.app\/api\/flow\/webhook$/.test(confirmUrl)) {
-        toast.error("Falta VITE_PUBLIC_CONFIRM_URL (ngrok) para confirmar el pago.");
-        return;
-      }
-      const createUrl = `${String(FLOW_BASE).replace(/\/$/, "")}/api/flow/create`;
+      // Webpay: usamos un endpoint del backend propio
+      const createUrl = "/api/payments/webpay/init"; // mismo origen (Vite proxy / Vercel)
 
       const itemsMeta = rows.map((r) => ({
         eventId: r.item.eventId,
@@ -549,7 +549,6 @@ export default function CartPage() {
         amount,
         email: user.email,
         returnUrl,
-        confirmUrl,
         // compat antiguos campos singulares:
         eventId: first.item.eventId,
         ticketId: first.item.ticketId,
@@ -569,6 +568,8 @@ export default function CartPage() {
         serviceFeeRate: SERVICE_FEE_RATE,
         buyerUid: user?.uid || null,
         buyerName: (user as any)?.displayName || null,
+        buyerRut: profile.rut || null,
+        buyerPhone: profile.telefono || null,
       };
 
       try {
@@ -589,7 +590,7 @@ export default function CartPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        console.error("Flow create error:", data);
+        console.error("Webpay init error:", data);
         toast.error(data?.error || "No se pudo iniciar el pago.");
         return;
       }
@@ -677,6 +678,7 @@ export default function CartPage() {
         nombre: profile.nombre || null,
         rut: profile.rut || null,
         direccion: profile.direccion || null,
+        telefono: profile.telefono || null,
         email: profile.email || user.email || null,
         sexo: profile.sexo || null,
         fecha_nacimiento: profile.fecha_nacimiento || null,
@@ -700,6 +702,8 @@ export default function CartPage() {
           sexo: profile.sexo || null,
           edad: buyerAge,
           eventId: ticketSlots[0]?.eventId || null,
+          rut: profile.rut || null,
+          telefono: profile.telefono || null,
         };
         // Clientes 2+
         const attendeesDemo = attendees.map((at, i) => {
@@ -790,7 +794,7 @@ export default function CartPage() {
 
       // limpiar query de la URL para evitar re-disparo
       const url = new URL(window.location.href);
-      ['status','pago','flow','payment'].forEach((k) => url.searchParams.delete(k));
+      ['status','pago','flow','payment','webpay'].forEach((k) => url.searchParams.delete(k));
       window.history.replaceState({}, '', url.toString());
     })();
   }, [location.search, (location as any).state]);
@@ -971,7 +975,7 @@ export default function CartPage() {
               </button>
 
               <p className="mt-2 text-xs text-white/50">
-                El total incluye el <b>cargo por servicio del 12%</b>. El pago se procesa vía Flow.
+                El total incluye el <b>cargo por servicio del 12%</b>. El pago se procesa vía Webpay.
               </p>
             </div>
           </aside>
@@ -990,7 +994,7 @@ export default function CartPage() {
                   className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15"
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    ['status','pago','flow','payment'].forEach((k) => url.searchParams.delete(k));
+                    ['status','pago','flow','payment','webpay'].forEach((k) => url.searchParams.delete(k));
                     window.history.replaceState({}, '', url.toString());
                     setPaymentModal({ open: false, status: null });
                   }}
@@ -1002,7 +1006,7 @@ export default function CartPage() {
                   className="px-3 py-2 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] font-semibold"
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    ['status','pago','flow','payment'].forEach((k) => url.searchParams.delete(k));
+                    ['status','pago','flow','payment','webpay'].forEach((k) => url.searchParams.delete(k));
                     window.history.replaceState({}, '', url.toString());
                     setPaymentModal({ open: false, status: null });
                   }}
@@ -1020,7 +1024,7 @@ export default function CartPage() {
                   className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15"
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    ['status','pago','flow','payment'].forEach((k) => url.searchParams.delete(k));
+                    ['status','pago','flow','payment','webpay'].forEach((k) => url.searchParams.delete(k));
                     window.history.replaceState({}, '', url.toString());
                     setPaymentModal({ open: false, status: null });
                   }}
@@ -1031,7 +1035,7 @@ export default function CartPage() {
                   className="px-3 py-2 rounded-md bg-[#f5e14c] text-black font-semibold hover:brightness-95"
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    ['status','pago','flow','payment'].forEach((k) => url.searchParams.delete(k));
+                    ['status','pago','flow','payment','webpay'].forEach((k) => url.searchParams.delete(k));
                     window.history.replaceState({}, '', url.toString());
                     setPaymentModal({ open: false, status: null });
                   }}
@@ -1072,6 +1076,15 @@ export default function CartPage() {
                 <label className="text-sm sm:col-span-2">
                   <span className={labelBase}>Dirección</span>
                   <input className={inputBase} value={profile.direccion} onChange={(e)=>setProfile({...profile,direccion:e.target.value})} placeholder="Calle, número, comuna" />
+                </label>
+                <label className="text-sm">
+                  <span className={labelBase}>Teléfono</span>
+                  <input
+                    className={inputBase}
+                    value={profile.telefono || ""}
+                    onChange={(e) => setProfile({ ...profile, telefono: e.target.value })}
+                    placeholder="+56 9 1234 5678"
+                  />
                 </label>
                 <label className="text-sm">
                   <span className={labelBase}>Correo</span>
@@ -1186,3 +1199,6 @@ export default function CartPage() {
     </div>
   );
 }
+              <p className="mt-2 text-xs text-white/60">
+                El pago se procesa vía Webpay.
+              </p>
