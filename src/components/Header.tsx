@@ -552,6 +552,7 @@ function MobileDrawer({
           <MobileNavItem to="/club/crear" icon={<HomeIcon className="w-5 h-5" />}>Crear Club</MobileNavItem>
             <MobileNavItem to="/adminClub" icon={<Users className="w-5 h-5" />}>Clubes Admin</MobileNavItem>
             <MobileNavItem to="/admin" icon={<Shield className="w-5 h-5" />}>Panel admin</MobileNavItem>
+            <MobileNavItem to="/cuenta" icon={<TicketCheck className="w-5 h-5" />}>Admin Ventas</MobileNavItem>
           </>
         )}
 
