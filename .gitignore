@@ -28,5 +28,4 @@ goupevents-infra-non-prod-s23-firebase-adminsdk-fbsvc-aa635c03a9.json
 *.njsproj
 *.sln
 *.sw?
-.vercel
-.env
+
