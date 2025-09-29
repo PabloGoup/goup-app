@@ -2,11 +2,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
+// ========= CONFIG =========
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
   (import.meta as any).env?.VITE_FLOW_SERVER_BASE ||
   "http://localhost:8788";
 
+// Lookup response shape
 type Lookup = {
   ok: boolean;
   ticket?: {
@@ -27,91 +29,142 @@ type Lookup = {
 };
 
 export default function CheckIn() {
+  // UI state
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<Lookup | null>(null);
+
+  // Hydration helpers (fetch extra data if missing)
   const [hydratedEventDateFor, setHydratedEventDateFor] = useState<string | null>(null);
   const [hydratedTicketFor, setHydratedTicketFor] = useState<string | null>(null);
 
-  // Cámara (BarcodeDetector nativo si está)
+  // ====== CAMERA / SCANNER STATE ======
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number>(0);
+  const usingDetectorRef = useRef<boolean>(false);
+  const zxingReaderRef = useRef<any>(null);
   const [scanning, setScanning] = useState(false);
+  const lastScannedRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let raf = 0;
-    // @ts-ignore
-    let detector: any = "BarcodeDetector" in window ? new window["BarcodeDetector"]({ formats: ["qr_code"] }) : null;
-
-    const stop = () => {
-      if (raf) cancelAnimationFrame(raf);
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = null;
-      }
-      setScanning(false);
-    };
-
-    async function start() {
+  // --- helpers to stop everything ---
+  function stopScanner() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = 0;
+    if (zxingReaderRef.current) {
       try {
-        if (!detector) return;
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        if (!videoRef.current) return;
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setScanning(true);
+        zxingReaderRef.current.reset();
+      } catch {}
+      zxingReaderRef.current = null;
+    }
+    if (streamRef.current) {
+      try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
+      streamRef.current = null;
+    }
+    setScanning(false);
+  }
 
-        const tick = async () => {
-          if (!videoRef.current) return;
+  // --- main start logic; supports iOS/Android/desktop ---
+  async function startScanner() {
+    try {
+      stopScanner();
+
+      // Request camera (rear if available)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
+
+      // Attach to <video>
+      if (!videoRef.current) return;
+      const video = videoRef.current;
+      video.setAttribute("playsinline", ""); // iOS Safari needs this
+      video.muted = true;
+      video.srcObject = stream;
+      await video.play();
+
+      // Prefer native BarcodeDetector when available
+      // @ts-ignore
+      const hasDetector = typeof window !== "undefined" && !!(window as any).BarcodeDetector;
+      if (hasDetector) {
+        usingDetectorRef.current = true;
+        // @ts-ignore
+        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+        const loop = async () => {
           try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes && codes.length > 0) {
-              const raw = codes[0].rawValue || codes[0].raw || "";
-              if (raw) {
-                setCode(raw);
-                stop();
+            const barcodes = await detector.detect(video);
+            if (barcodes && barcodes.length) {
+              const raw = barcodes[0].rawValue || barcodes[0].raw || "";
+              if (raw && raw !== lastScannedRef.current) {
+                lastScannedRef.current = raw;
+                setCode(raw); // overwrite previous code
               }
             }
           } catch {}
-          raf = requestAnimationFrame(tick);
+          rafRef.current = requestAnimationFrame(loop);
         };
-        raf = requestAnimationFrame(tick);
-      } catch (e) {
-        console.warn("scan error", e);
+        setScanning(true);
+        rafRef.current = requestAnimationFrame(loop);
+        return;
       }
-    }
 
-    start();
-    return () => stop();
+      // Fallback: ZXing for iOS Safari & older Android
+      usingDetectorRef.current = false;
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      zxingReaderRef.current = reader;
+      setScanning(true);
+      await reader.decodeFromVideoDevice(
+        undefined,
+        video,
+        (res) => {
+          if (res) {
+            const text = res.getText();
+            if (text && text !== lastScannedRef.current) {
+              lastScannedRef.current = text;
+              setCode(text);
+            }
+          }
+        }
+      );
+    } catch (e) {
+      console.warn("No se pudo inicializar la cámara", e);
+     
+    }
+  }
+
+  // Start on mount; keep active. Do NOT stop after check-in.
+  useEffect(() => {
+    startScanner();
+    return () => stopScanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ====== HYDRATE EVENT DATE (if missing) ======
   useEffect(() => {
     (async () => {
       const evId = result?.ticket?.eventId;
       const missing = !result?.ticket?.eventStart && !!evId;
       if (!missing) return;
-      if (hydratedEventDateFor === evId) return; // avoid duplicate fetches
+      if (hydratedEventDateFor === evId) return;
       try {
         const db = getFirestore();
         const ref = doc(db, "evento", evId!);
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const d: any = snap.data();
-          let raw = d?.start ?? d?.fechaInicio ?? d?.dateStart ?? d?.startDate ?? null;
+          let raw = d?.start ?? d?.fechaInicio ?? d?.dateStart ?? d?.startDate ?? d?.schedule?.start ?? null;
           let iso: string | null = null;
-          if (!raw) {
-            // some schemas store nested schedule { start }
-            raw = d?.schedule?.start ?? null;
-          }
           if (raw) {
-            if (typeof raw === "string") {
-              iso = raw;
-            } else if (raw?.toDate) {
-              iso = raw.toDate().toISOString();
-            } else if (typeof raw?.seconds === "number") {
-              iso = new Date(raw.seconds * 1000).toISOString();
-            }
+            if (typeof raw === "string") iso = raw;
+            else if (raw?.toDate) iso = raw.toDate().toISOString();
+            else if (typeof raw?.seconds === "number") iso = new Date(raw.seconds * 1000).toISOString();
           }
           if (iso) {
             setResult((prev) => (prev && prev.ticket ? { ...prev, ticket: { ...prev.ticket, eventStart: iso } } : prev));
@@ -124,14 +177,14 @@ export default function CheckIn() {
     })();
   }, [result?.ticket?.eventId, result?.ticket?.eventStart, hydratedEventDateFor]);
 
+  // ====== HYDRATE TICKET FIELDS (buyer, event name) IF MISSING ======
   useEffect(() => {
     (async () => {
       const tid = result?.ticket?.id;
       if (!tid) return;
-      // hydrate only if some key fields are missing
       const needsBuyer = !result?.ticket?.buyerName || !result?.ticket?.buyerRut || !result?.ticket?.eventName || !result?.ticket?.eventStart;
       if (!needsBuyer) return;
-      if (hydratedTicketFor === tid) return; // avoid duplicate fetches
+      if (hydratedTicketFor === tid) return;
       try {
         const db = getFirestore();
         const ref = doc(db, "tickets", tid);
@@ -141,15 +194,13 @@ export default function CheckIn() {
           const buyerName = d?.buyerName ?? d?.attendee?.nombre ?? d?.attendeesRaw?.[0]?.nombre ?? null;
           const buyerRut = d?.buyerRut ?? d?.attendee?.rut ?? d?.attendeesRaw?.[0]?.rut ?? null;
           const eventName = d?.eventName ?? null;
-          // Try multiple possible shapes for start date
           let eventStart: string | null = d?.eventStart ?? null;
           if (!eventStart) {
             const raw = d?.event?.start ?? d?.schedule?.start ?? null;
-            if (typeof raw === 'string') eventStart = raw;
+            if (typeof raw === "string") eventStart = raw;
             else if (raw?.toDate) eventStart = raw.toDate().toISOString();
-            else if (typeof raw?.seconds === 'number') eventStart = new Date(raw.seconds * 1000).toISOString();
+            else if (typeof raw?.seconds === "number") eventStart = new Date(raw.seconds * 1000).toISOString();
           }
-
           setResult((prev) => {
             if (!prev || !prev.ticket) return prev;
             return {
@@ -166,11 +217,12 @@ export default function CheckIn() {
           setHydratedTicketFor(tid);
         }
       } catch (err) {
-        console.warn('No se pudo hidratar datos del ticket', err);
+        console.warn("No se pudo hidratar datos del ticket", err);
       }
     })();
   }, [result?.ticket?.id, result?.ticket?.buyerName, result?.ticket?.buyerRut, result?.ticket?.eventName, result?.ticket?.eventStart, hydratedTicketFor]);
 
+  // ====== API: lookup & checkin ======
   async function doLookup(c: string) {
     setBusy(true);
     setMsg(null);
@@ -200,8 +252,8 @@ export default function CheckIn() {
       const data = await r.json();
       if (r.ok && data.ok) {
         setMsg("✅ Ticket marcado como UTILIZADO");
-        // refrescar estado
-        doLookup(c);
+        // Refresh; camera remains ON
+        await doLookup(c);
       } else {
         setMsg(`⚠️ ${data?.error || "No se pudo marcar"}`);
       }
@@ -216,9 +268,17 @@ export default function CheckIn() {
     setCode("");
     setResult(null);
     setMsg(null);
+    lastScannedRef.current = null;
   }
 
-  const prettyStatus = result?.ticket?.status === 'used' ? 'Utilizado' : (result?.ticket?.status === 'valid' ? 'Valido' : (result?.ticket?.status === 'void' ? 'Anulado' : '—'));
+  const prettyStatus =
+    result?.ticket?.status === "used"
+      ? "Utilizado"
+      : result?.ticket?.status === "valid"
+      ? "Valido"
+      : result?.ticket?.status === "void"
+      ? "Anulado"
+      : "—";
 
   return (
     <main className="max-w-xl mx-auto p-4">
@@ -227,8 +287,18 @@ export default function CheckIn() {
       <div className="rounded-lg border border-white/10 p-3 mb-4">
         <div className="text-sm mb-2">Escanear con cámara (si está disponible)</div>
         <video ref={videoRef} className="w-full rounded bg-black/40" playsInline muted />
+        <div className="mt-2 flex gap-2">
+          {!scanning ? (
+            <button className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={startScanner}>Iniciar cámara</button>
+          ) : (
+            <button className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={startScanner}>Reiniciar cámara</button>
+          )}
+          <button className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={stopScanner}>Detener cámara</button>
+        </div>
         <div className="mt-2 text-xs text-white/60">
-          {scanning ? "Escaneando…" : "Si tu navegador lo permite, al apuntar al QR se completará el código automáticamente."}
+          {scanning
+            ? "Escaneando… (apunta el QR y el código se completará)"
+            : "La cámara está detenida. Puedes iniciarla nuevamente cuando quieras."}
         </div>
       </div>
 
@@ -263,12 +333,9 @@ export default function CheckIn() {
             <div>Evento: {result.ticket.eventId || "—"}</div>
             <div>Tipo ticket: {result.ticket.ticketTypeId || "—"}</div>
           </div>
+          <button className="mt-3 px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={doClear}>Limpiar</button>
         </div>
       )}
-
-      <button className="mt-3 px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={doClear}>
-        Limpiar
-      </button>
     </main>
   );
 }
