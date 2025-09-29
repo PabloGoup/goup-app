@@ -5,6 +5,7 @@ import { db as firebaseDb } from "@/lib/firebase";
 import ClubList from "@/components/ClubList";
 import DistanceSlider from "@/components/DistanceSlider";
 import { getDistanceFromLatLonInKm } from "@/lib/utils";
+import { MAIN_GENRES, getSubgenres } from "@/lib/musicGenres";
 
 /* ===== Tipos ===== */
 type ClubDoc = {
@@ -30,6 +31,12 @@ type ClubDoc = {
   wifi?: boolean;
   seguridad?: boolean;
   vips?: boolean;
+
+  // NUEVO: géneros y subgéneros (nombres posibles)
+  generos?: string[] | null;
+  subGeneros?: string[] | null;   // camelCase
+  sub_generos?: string[] | null;  // underscore (variante 1)
+  generos_sub?: string[] | null;  // underscore (variante 2, orden invertido)
 };
 
 type ClubData = {
@@ -46,6 +53,9 @@ type ClubData = {
   // Derivados siempre presentes
   servicios: string[];
   serviciosNorm: string[];
+
+  // NUEVO: géneros normalizados (principal + sub)
+  generosAll: string[];
 };
 
 /* ===== Cache (stale-while-revalidate) ===== */
@@ -88,6 +98,12 @@ function norm(v?: string | null) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
+
+// Expande un género principal a [principal + todos sus subgéneros] y normaliza
+function expandMainToAll(main: string): string[] {
+  const subs = getSubgenres(main) ?? [];
+  return [main, ...subs].map((g) => norm(g));
+}
 function clubToHashable(c: ClubData) {
   return {
     id: c.id,
@@ -100,6 +116,7 @@ function clubToHashable(c: ClubData) {
     lat: c.lat ?? null,
     lng: c.lng ?? null,
     servicios: [...(c.servicios ?? [])].map(norm).sort(),
+    generosAll: [...(c.generosAll ?? [])].map(norm).sort(), // NUEVO
   };
 }
 function computeHashes(list: ClubData[]) {
@@ -161,6 +178,8 @@ const DEFAULT_SERVICES = [
   "vips",
 ];
 
+
+
 export default function Home() {
   const [clubs, setClubs] = useState<ClubData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,6 +187,8 @@ export default function Home() {
   // Filtros
   const [q, setQ] = useState("");
   const [selectedSvcs, setSelectedSvcs] = useState<string[]>([]);
+  // NUEVO: filtro por géneros principales
+  const [selectedMainGenres, setSelectedMainGenres] = useState<string[]>([]);
 
   // Distancia
   const [distanceKm, setDistanceKm] = useState<number>(20);
@@ -211,6 +232,17 @@ export default function Home() {
           const servicios = Array.from(new Set<string>([...fromArray, ...fromBools]));
           const serviciosNorm = servicios.map(norm);
 
+          // ===== Géneros: principal + sub (acepta nombres alternos) =====
+          const genRaw = Array.isArray(c?.generos) ? c.generos : [];
+          const subRaw =
+            Array.isArray(c?.subGeneros) ? c.subGeneros :
+            Array.isArray((c as any)?.sub_generos) ? (c as any).sub_generos :
+            Array.isArray((c as any)?.generos_sub) ? (c as any).generos_sub :
+            [];
+          const generosAll = Array.from(
+            new Set<string>([...genRaw, ...subRaw].map((g) => norm(`${g}`)))
+          ).filter(Boolean);
+
           return {
             id: d.id,
             nombre: c?.nombre ?? "Club",
@@ -223,6 +255,7 @@ export default function Home() {
             lng: typeof c?.longitud === "number" ? c.longitud : null,
             servicios,
             serviciosNorm,
+            generosAll,
           };
         });
 
@@ -320,6 +353,13 @@ export default function Home() {
       );
     }
 
+    // NUEVO: filtro por géneros principales (incluye subgéneros)
+    if (selectedMainGenres.length > 0) {
+      const allowed = new Set<string>();
+      selectedMainGenres.forEach((g) => expandMainToAll(g).forEach((x) => allowed.add(x)));
+      list = list.filter((c) => (c.generosAll ?? []).some((g) => allowed.has(norm(g))));
+    }
+
     if (selectedSvcs.length > 0) {
       const required = selectedSvcs.map(norm);
       list = list.filter((c) => required.every((r) => (c.serviciosNorm ?? []).includes(r)));
@@ -335,10 +375,11 @@ export default function Home() {
 
     list.sort((a, b) => a.nombre.localeCompare(b.nombre));
     return list;
-  }, [clubs, q, selectedSvcs, myPos, distanceKm]);
+  }, [clubs, q, selectedMainGenres, selectedSvcs, myPos, distanceKm]);
 
   const clearFilters = () => {
     setQ("");
+    setSelectedMainGenres([]);
     setSelectedSvcs([]);
   };
 
@@ -369,12 +410,14 @@ export default function Home() {
     }
   };
 
-  const anyFilterActive = !!q.trim() || selectedSvcs.length > 0 || !!myPos;
+  const anyFilterActive = !!q.trim() || selectedMainGenres.length > 0 || selectedSvcs.length > 0 || !!myPos;
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10">
       <header className="text-center mb-6">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff]">Explora Clubes</h1>
+      <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+           Explora <span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Clubes</span>
+          </h1>
         <p className="text-foreground/70 mt-2">Encuentra el lugar perfecto para tu próxima noche.</p>
       </header>
 
@@ -383,7 +426,7 @@ export default function Home() {
         <div className="flex-1 relative">
           <input
             ref={inputRef}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#8e2afc]"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#FE8B02]"
             placeholder="Buscar por nombre, dirección, ciudad o comuna…"
             value={q}
             onChange={(e) => {
@@ -435,6 +478,34 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Filtro por Géneros (principales) */}
+      <div className="mb-3 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
+          {MAIN_GENRES.map((g) => {
+            const active = selectedMainGenres.includes(g);
+            return (
+              <button
+                key={g}
+                onClick={() =>
+                  setSelectedMainGenres((cur) =>
+                    active ? cur.filter((x) => x !== g) : [...cur, g]
+                  )
+                }
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs border transition ${
+                  active
+                    ? "bg-[#FE8B02]/30 border-[#FE8B02]/60 text-[#e7dcff]"
+                    : "bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10"
+                }`}
+                aria-pressed={active}
+                title={`Filtrar por ${g} (incluye subgéneros)`}
+              >
+                {g}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Chips de servicios (fijos) */}
       <div className="mb-4 -mx-4 px-4">
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
@@ -448,7 +519,7 @@ export default function Home() {
                 }
                 className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs border transition ${
                   active
-                    ? "bg-[#8e2afc]/30 border-[#8e2afc]/60 text-[#e7dcff]"
+                    ? "bg-[#FE8B02]/30 border-[#FE8B02]/60 text-[#e7dcff]"
                     : "bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10"
                 }`}
                 aria-pressed={active}

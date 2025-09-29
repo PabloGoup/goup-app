@@ -1,5 +1,5 @@
 // src/AppRoutes.tsx
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import CheckIn from "@/pages/CheckIn";
 import EventsBrowse from "@/pages/EventsBrowse";
 import ClubsBrowse from "@/pages/ClubsBrowse";
@@ -32,6 +32,7 @@ import PaymentReturn from "@/pages/PaymentReturn";
 import AdminSales from "@/pages/AdminSales";
 import MisTickets from "@/pages/MisTickets";
 import CartPage from "./pages/CartPage";
+import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 
 export default function AppRoutes() {
   const location = useLocation();
@@ -64,17 +65,43 @@ export default function AppRoutes() {
    {/* Tickets  */}
           <Route path="/mis-tickets" element={<MisTickets />} />
 
-<Route
-  path="/admin/ventas"
-  element={
-    <RequireAuth>
-      <RequireRole roles={["admin"]}>
-        <AdminSales />
-      </RequireRole>
-    </RequireAuth>
-  }
-/>
+      {/* Hub unificado de cuenta: analíticas + gestión (versión inicial) */}
+      <Route
+        path="/cuenta"
+        element={
+          <RequireAuth>
+            <AnalyticsDashboard />
+          </RequireAuth>
+        }
+      />
 
+
+
+      <Route
+        path="/admin/ventas"
+        element={
+          <RequireAuth>
+            <AdminSales/>
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/admin/analytics"
+        element={
+          <RequireAuth>
+            <Navigate to="/cuenta" replace />
+          </RequireAuth>
+        }
+      />
+        <Route
+        path="/admin/analytics"
+        element={
+          <RequireAuth>
+            <Navigate to="/cuenta" replace />
+          </RequireAuth>
+        }
+      />
           {/* Área autenticada */}
           <Route
             path="perfil"

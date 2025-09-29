@@ -204,9 +204,10 @@ export default function ArtistsBrowse() {
     <main className="max-w-6xl mx-auto px-4 py-8">
       {/* Header simple (igual a EventBrowser) */}
       <header className="mb-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff]">
-        Artistas
-        </h1>
+      <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+            Art<span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">istas</span>
+          </h1>
+      <div className="mx-auto mt-2 h-2 w-40 bg-[radial-gradient(closest-side,rgba(254,139,2,0.5),rgba(0,0,0,0)_70%)] blur-xl" />
         <p className="text-foreground/70 mt-2">
         Descubre a tus DJs y productores favoritos.
         </p>
@@ -216,7 +217,7 @@ export default function ArtistsBrowse() {
       <div className="mb-6">
         <input
           ref={inputRef}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#8e2afc]"
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#FE8B02]"
           placeholder="Buscar por nombre o género…"
           value={q}
           onChange={(e) => setQ(e.target.value)}

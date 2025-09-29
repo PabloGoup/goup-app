@@ -247,7 +247,7 @@ export default function ArtistDetail() {
           <div className="grid gap-8 md:gap-10 md:grid-cols-[300px_1fr] items-start">
             {/* Avatar redondo con aro y controles */}
             <figure className="relative w-[240px] md:w-[300px] aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/10 shrink-0 grid place-items-center">
-              <div className="relative w-[100%] aspect-square  ring-4 ring-[#8e2afc]/40 overflow-hidden">
+              <div className="relative w-[100%] aspect-square  ring-4 ring-[#FE8B02]/40 overflow-hidden">
                 <img src={avatar} alt={name} className="w-full h-full object-cover" loading="eager" />
                 
               </div>

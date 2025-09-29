@@ -28,6 +28,7 @@ import {
   CarIcon,
   ShoppingCart,
   QrCode,
+  HomeIcon,
 } from "lucide-react";
 import { MdFavorite } from "react-icons/md";
 import { SiCarto, SiCoinmarketcap, SiMarketo } from "react-icons/si";
@@ -181,9 +182,25 @@ export default function Header() {
   }, [user]);
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-black border border-white/10 backdrop-blur text-white">
+    <header className="fixed top-0 left-0 w-full z-50 bg-black  backdrop-blur text-white">
+      <style>{`
+        /* Thin, visible scrollbar for the mobile drawer */
+        #mobile-drawer { scrollbar-gutter: stable both-edges; }
+        #mobile-drawer::-webkit-scrollbar { width: 6px; }
+                /* Firefox */
+        #mobile-drawer { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.35) rgba(255,255,255,0.06); }
+        #mobile-drawer::-webkit-scrollbar-track { background: rgba(255,255,255,0.06); border-radius: 9999px; }
+        #mobile-drawer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 9999px; }
+        #mobile-drawer:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); }
+      `}</style>
       {/* ======= DESKTOP ======= */}
       <div className="hidden md:flex items-center h-16 px-6 relative">
+      <span
+              className="absolute -inset-x-3 -inset-y-2 rounded-full
+                        bg-[radial-gradient(closest-side,rgba(254,139,2,0.65),rgba(0,0,0,0)_50%)]
+                         blur-md opacity-25 group-hover:opacity-25 transition-opacity"
+              aria-hidden
+            />
         {/* Grupo centrado: nav izq + LOGO + nav der */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 pointer-events-auto">
           <nav className="flex items-center gap-3">
@@ -197,17 +214,12 @@ export default function Header() {
                        text-3xl font-black tracking-tight transition-transform duration-200 hover:scale-110"
             aria-label="GoUp - Inicio"
           >
-            <span
-              className="absolute -inset-x-3 -inset-y-2 rounded-full
-                         bg-[radial-gradient(closest-side,rgba(142,42,252,0.6),rgba(142,42,252,0)_70%)]
-                         blur-md opacity-70 group-hover:opacity-100 transition-opacity"
-              aria-hidden
-            />
-            <span className="relative z-10 leading-none drop-shadow-[0_2px_10px_rgba(142,42,252,0.35)]">
-              Go<span className="text-[#b688ff]">Up</span>
+          
+            <span className="relative z-10 leading-none drop-shadow-[0_2px_10px_rgba(254,139,2,0.35)]">
+              Go<span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Up</span>
             </span>
           </Link>
-
+         
           <nav className="flex items-center gap-3">
             <NavItem to="/artistas" icon={<User className="w-4 h-4" />}>Artistas</NavItem>
             <NavItem to="/favoritos" icon={<MdFavorite className="w-4 h-4" />}>Favoritos</NavItem>
@@ -219,7 +231,7 @@ export default function Header() {
           {!user ? (
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#8e2afc] text-sm hover:opacity-90"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#FE8B02] text-sm hover:opacity-90"
             >
               <LogIn className="w-4 h-4" /> Iniciar sesión
             </Link>
@@ -227,7 +239,7 @@ export default function Header() {
             <div className="relative" ref={containerRef}>
               <button
                 onClick={() => setOpen((o) => !o)}
-                className="inline-flex items-center gap-2 pl-2 pr-2.5 h-9 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                className="inline-flex items-center gap-2 pl-2 pr-2.5 h-9 rounded border border-white/20 bg-white/5 hover:bg-white/10 transition"
               >
                 <AvatarCircle
                   src={avatarSrc}
@@ -235,16 +247,16 @@ export default function Header() {
                   className="w-6 h-6"
                   label="Foto de perfil"
                 />
-                <span className="text-l font-semibold transition rounded-md">Menú</span>
+                <span className="text-l font-semibold transition rounded">Menú</span>
                 <ChevronDown className="w-4 h-4 opacity-80" />
               </button>
 
               {open && (
-                <div className="absolute z-[70] right-0 top-full mt-2 w-64 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                <div className="absolute z-[70] right-0 top-full mt-2 w-64 bg-neutral-900 border border-white/10 rounded shadow-2xl overflow-hidden">
                   <Link
                     to="/perfil"
                     onClick={() => setOpen(false)}
-                    className="px-3 py-3 border-b border-white/10 flex items-center gap-3 hover:bg-white/5 transition rounded-md"
+                    className="px-3 py-3 border-b border-white/10 flex items-center gap-3 hover:bg-white/5 transition rounded"
                   >
                     <AvatarCircle
                       src={avatarSrc}
@@ -261,17 +273,20 @@ export default function Header() {
                   
 
                   <nav className="py-1 text-sm">
-                    {isClubOwner && !loadingClub && (
+                    {isClubOwner && isAdmin && !loadingClub && (
                       hasClub ? (
                         <MenuLink to="/dashboard/mi-club" onClick={() => setOpen(false)} icon={<Building2 className="w-4 h-4" />}>
                           Mi club
                         </MenuLink>
+
                       ) : (
                         <MenuLink to="/club/crear" onClick={() => setOpen(false)} icon={<Building2 className="w-4 h-4" />}>
                           Crear club
                         </MenuLink>
                       )
                     )}
+
+                 
 
                     {shouldShowRoleRequest && (
                       <MenuLink to="/solicitud-acceso" onClick={() => setOpen(false)} icon={<UserPlus className="w-4 h-4" />}>
@@ -300,7 +315,11 @@ export default function Header() {
                         Crear evento
                       </MenuLink>
                     )}
-
+                    {(isAdmin) && (
+                      <MenuLink to="/club/crear" onClick={() => setOpen(false)} icon={<HomeIcon className="w-4 h-4" />}>
+                        Crear Club
+                      </MenuLink>
+                    )}
                     {(isProductor || isAdmin) && (
                       hasProducer ? (
                         <MenuLink to="/dashboard/productora" onClick={() => setOpen(false)} icon={<Briefcase className="w-4 h-4" />}>
@@ -321,7 +340,7 @@ export default function Header() {
                         <MenuLink to="/admin" onClick={() => setOpen(false)} icon={<Shield className="w-4 h-4" />}>
                           Panel admin
                         </MenuLink>
-                        <MenuLink to="/admin/ventas" onClick={() => setOpen(false)} icon={<TicketCheck className="w-4 h-4" />}>
+                        <MenuLink to="/cuenta" onClick={() => setOpen(false)} icon={<TicketCheck className="w-4 h-4" />}>
                          Admin Ventas
                         </MenuLink>
                       </>
@@ -357,18 +376,18 @@ export default function Header() {
         <Link
           to="/eventos"
           className="group relative inline-flex items-center justify-center
-                     h-14 px-6 rounded-full text-2xl font-black tracking-tight
+                     h-14 px-6 rounded text-2xl font-black tracking-tight
                      transition-transform duration-200 hover:scale-110"
           aria-label="GoUp - Inicio"
         >
           <span
-            className="absolute -inset-x-3 -inset-y-2 rounded-full
-                       bg-[radial-gradient(closest-side,rgba(142,42,252,0.6),rgba(142,42,252,0)_70%)]
+            className="absolute -inset-x-3 -inset-y-2 rounded
+                       bg-[radial-gradient(closest-side,rgba(254,139,2,0.65),rgba(0,0,0,0)_70%)]
                        blur-md opacity-70 group-hover:opacity-100 transition-opacity"
             aria-hidden
           />
-          <span className="relative z-10 leading-none drop-shadow-[0_2px_10px_rgba(142,42,252,0.35)]">
-            Go<span className="text-[#b688ff]">Up</span>
+          <span className="relative z-10 leading-none drop-shadow-[0_2px_10px_rgba(254,139,2,0.35)]">
+            Go<span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Up</span>
           </span>
         </Link>
 
@@ -376,7 +395,7 @@ export default function Header() {
           {!user && (
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#8e2afc] text-sm hover:opacity-90"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#FE8B02] text-sm hover:opacity-90"
             >
               <LogIn className="w-4 h-4" /> Iniciar sesión
             </Link>
@@ -384,7 +403,7 @@ export default function Header() {
 
           {user && (
             <button
-              className="text-sm px-2 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center gap-2"
+              className="text-sm px-2 h-9 rounded  hover:bg-white/10 flex items-center gap-2"
               onClick={() => setMobileOpen((m) => !m)}
             >
               <span className="font-semibold">Menú</span>
@@ -429,8 +448,8 @@ function NavItem({ to, children, icon }: { to: string; children: React.ReactNode
       to={to}
       className={({ isActive }) =>
         `relative px-2 py-1 rounded flex items-center gap-1.5 transition
-         ${isActive ? "text-[#8e2afc]" : "text-white/85 hover:text-white"}
-         after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-0.5 after:bg-[#8e2afc] hover:after:w-full after:transition-all`
+      ${isActive ? "text-[#FE8B02]" : "text-white/85 hover:text-white"}
+         after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-0.5 after:bg-[#FE8B02] hover:after:w-full after:transition-all`
       }
     >
       {icon} <span className="font-semibold">{children}</span>
@@ -456,21 +475,27 @@ function MobileDrawer({
   const navigate = useNavigate();
   return (
     <div
-      className="relative z-50 w-80 max-w=[85vw] bg-black p-4 shadow-2xl border-l border-white/10 animate-slide-in"
+      id="mobile-drawer"
+      className="relative z-50 w-80 max-w-[85vw] h-full max-h-screen bg-black p-3 pr-1 shadow-2xl border-l animate-slide-in overflow-y-auto overscroll-contain"
       onClick={(e) => e.stopPropagation()}
+      style={{
+        WebkitOverflowScrolling: "touch",
+        scrollbarWidth: "thin",      // Firefox
+        msOverflowStyle: "auto"      // Old Edge/IE (harmless elsewhere)
+      }}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <Link
             to="/perfil"
             onClick={() => setMobileOpen(false)}
-            className="group flex items-center gap-3 px-3 py-3 mb-3 rounded-lg bg-white/5 hover:bg-white/10 active:scale-[.98] transition"
+            className="group flex items-center gap-2.5 px-2 py-1.5 mb-1.5 rounded-lg bg-white/0 hover:bg-white/0 active:scale-[.98] transition"
             aria-label="Ir a mi perfil"
           >
             <AvatarCircle
               src={avatarUrl}
               initial={initial}
-              className="w-11 h-11 shrink-0"
+              className="w-9 h-9 shrink-0"
               initialClass="text-sm"
               label="Foto de perfil"
             />
@@ -482,9 +507,9 @@ function MobileDrawer({
         </div>
       </div>
 
-      <div className="h-px bg-white/10 my-2" />
+      <div className="h-px bg-white/10 my-1" />
 
-      <nav className="space-y-2">
+      <nav className="space-y-0.5">
         {isClubOwner && !loadingClub && (
           hasClub ? (
             <MobileNavItem to="/dashboard/mi-club" icon={<Building2 className="w-5 h-5" />}>Mi club</MobileNavItem>
@@ -524,17 +549,19 @@ function MobileDrawer({
 
         {isAdmin && (
           <>
+          <MobileNavItem to="/club/crear" icon={<HomeIcon className="w-5 h-5" />}>Crear Club</MobileNavItem>
             <MobileNavItem to="/adminClub" icon={<Users className="w-5 h-5" />}>Clubes Admin</MobileNavItem>
             <MobileNavItem to="/admin" icon={<Shield className="w-5 h-5" />}>Panel admin</MobileNavItem>
+            <MobileNavItem to="/cuenta" icon={<TicketCheck className="w-5 h-5" />}>Admin Ventas</MobileNavItem>
           </>
         )}
 
-        <div className="h-px bg-white/10 my-2" />
+        <div className="h-px bg-white/10 my-1.5" />
 
         <MobileNavItem to="/perfil" icon={<User2 className="w-5 h-5" />}>Mi perfil</MobileNavItem>
 
         <button
-          className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-3 text-[15px]"
+          className="w-full text-left px-2 py-1.5 rounded-md hover:bg-white/5 flex items-center gap-2.5 text-[13px]"
           onClick={async () => {
             setMobileOpen(false);
             try {
@@ -544,7 +571,7 @@ function MobileDrawer({
             }
           }}
         >
-          <span className="grid place-items-center rounded-md w-9 h-9 bg-white/5 border border-white/10">
+          <span className="grid place-items-center rounded-md w-7 h-7 bg-white/5 border border-white/10">
             <LogOut className="w-5 h-5" />
           </span>
           Cerrar sesión
@@ -561,11 +588,11 @@ function MobileNavItem({
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2 rounded-md text-[15px]
-         ${isActive ? "bg-[#8e2afc]/20 text-[#8e2afc]" : "text-white/90 hover:bg-white/5"}`
+        `flex items-center gap-2 px-2 py-1 rounded-md text-[13px] leading-tight
+         ${isActive ? "bg-[#FE8B02]/15 text-[#FE8B02]" : "text-white/90 hover:bg-white/5"}`
       }
     >
-      <span className="grid place-items-center rounded-md w-9 h-9 bg-white/5 border border-white/10">
+      <span className="grid place-items-center rounded-md w-7 h-7 bg-white/5 border border-white/10">
         {icon}
       </span>
       <span className="font-medium">{children}</span>

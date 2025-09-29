@@ -114,20 +114,7 @@ export default function AddressMapInputGoogle({
 
       {/* Input principal controlado por RHF */}
       <div className="relative">
-        <input
-          {...register(nameDireccion as any)}
-          onFocus={handleFocus}
-          placeholder="Escribe la dirección y selecciona una sugerencia…"
-          className="w-full rounded-md border /10 bg-white/5 px-3 py-2  outline-none focus:border-[#8e2afc]"
-          autoComplete="off"
-          value={dir || ""}
-          onChange={(e) =>
-            setValue(nameDireccion, e.target.value, { shouldDirty: true, shouldValidate: true })
-          }
-        />
-
-        {/* Autocomplete sólo si el script está cargado y el UI habilitado */}
-        {isLoaded && uiEnabled && (
+        {isLoaded && uiEnabled ? (
           <Autocomplete
             onLoad={(ac) => {
               acRef.current = ac;
@@ -139,17 +126,36 @@ export default function AddressMapInputGoogle({
             }}
             onPlaceChanged={onPlaceChanged}
           >
-            {/* Input transparente para enganchar el overlay del widget */}
             <input
-              style={{
-                position: "absolute",
-                inset: 0,
-                opacity: 0,
-                pointerEvents: "auto",
-              }}
+              {...register(nameDireccion as any)}
+              onFocus={handleFocus}
+              placeholder="Escribe la dirección y selecciona una sugerencia…"
+              className="w-full rounded-md border /10 bg-white/5 px-3 py-2 outline-none focus:border-[#FE8B02]"
               autoComplete="off"
+              value={dir || ""}
+              onChange={(e) =>
+                setValue(nameDireccion, e.target.value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
             />
           </Autocomplete>
+        ) : (
+          <input
+            {...register(nameDireccion as any)}
+            onFocus={handleFocus}
+            placeholder="Escribe la dirección y selecciona una sugerencia…"
+            className="w-full rounded-md border /10 bg-white/5 px-3 py-2 outline-none focus:border-[#FE8B02]"
+            autoComplete="off"
+            value={dir || ""}
+            onChange={(e) =>
+              setValue(nameDireccion, e.target.value, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          />
         )}
       </div>
 

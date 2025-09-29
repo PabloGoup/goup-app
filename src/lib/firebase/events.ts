@@ -15,7 +15,7 @@ export interface Event {
 
 export async function getAllEvents(): Promise<Event[]> {
   try {
-    const eventsRef = collection(db, "Eventos");
+    const eventsRef = collection(db, "evento");
     const q = query(eventsRef, orderBy("fecha", "desc"));
     const snapshot = await getDocs(q);
 

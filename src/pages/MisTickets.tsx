@@ -14,7 +14,7 @@ import { db as firebaseDb } from "@/lib/firebase";
 
 /* ===== Tipos ===== */
 type UserTicket = {
-  // campos persistidos por ítem en `orders`
+  // campos persistidos por ítem en `finishedOrder`
   orderId: string;
   status?: "paid" | "pending" | "failed" | "canceled";
   eventId?: string | null;
@@ -28,9 +28,15 @@ type UserTicket = {
   currency: string;              // CLP/USD…
   paidAt?: number | null;
   createdAt?: number | null;
+  eventStart?: string | null;
+  eventEnd?: string | null;
 
   // extras útiles para depurar/mostrar
   raw?: Record<string, any> | null;
+
+  // NUEVO: contadores de uso
+  usedCount?: number;
+  totalCount?: number;
 };
 
 /* ===== Helpers ===== */
@@ -42,6 +48,8 @@ const CLP = new Intl.NumberFormat("es-CL", {
 
 const placeholder = "https://placehold.co/80x80/101013/FFF?text=EV";
 
+const ORANGE_HOVER = "#E36500";
+
 /* ===== Tipos/Helpers para QR ===== */
 type TicketQR = {
   id: string;
@@ -49,6 +57,22 @@ type TicketQR = {
   dataUrl: string;
   status: "valid" | "used" | "void";
   usedAt?: number | null;
+  guestIndex?: number | null;
+  // enriquecidos desde el doc del ticket
+  buyerName?: string | null;
+  buyerRut?: string | null;
+  eventStart?: string | null;
+  eventEnd?: string | null;
+  eventName?: string | null;
+  attendee?: {
+    nombre?: string | null;
+    correo?: string | null;
+    rut?: string | null;
+    telefono?: string | null;
+    sexo?: string | null;
+    fecha_nacimiento?: string | null; // YYYY-MM-DD
+    edad?: number | null;
+  } | null;
 };
 
 async function generateQrDataUrl(text: string): Promise<string> {
@@ -159,12 +183,22 @@ function OrderCover({ images }: { images: string[] }) {
 }
 
 const getQty = (t: UserTicket) => Math.max(1, Number(t.qty ?? 1));
-const getSubtotal = (t: UserTicket) =>
-  Math.round(
-    Number.isFinite(t.amount as any)
-      ? (t.amount as number)
-      : Math.round(t.price || 0) * getQty(t)
-  );
+
+const getRate = (t: UserTicket) => {
+  const r = (t as any)?.raw?.serviceFeeRate ?? (t as any)?.serviceFeeRate;
+  return typeof r === 'number' ? r : 0.12; // fallback 12%
+};
+
+const priceWithFee = (t: UserTicket) => {
+  const base = Math.round(t.price || 0);
+  const rate = getRate(t);
+  return Math.round(base * (1 + rate));
+};
+
+const getSubtotal = (t: UserTicket) => {
+  // Mostrar SIEMPRE con cargos incluidos
+  return priceWithFee(t) * getQty(t);
+};
 
 function fmtDate(ts?: number | null) {
   if (!ts) return "—";
@@ -190,15 +224,27 @@ export default function MisTickets() {
   const [qrList, setQrList] = useState<TicketQR[]>([]);
   const [expandedQrs, setExpandedQrs] = useState<Record<string, boolean>>({});
 
+  // Obtener tab seleccionado
+  const selectedOrderId = searchParams.get("orden");
+  const tab = (searchParams.get('tab') || 'all') as 'all'|'used'|'upcoming';
+
+  // Filtrar items según tab
+  const itemsFiltered = useMemo(()=>{
+    if (tab === 'all') return items;
+    if (tab === 'used') return items.filter(it => (it.usedCount || 0) > 0);
+    // upcoming: tiene disponibles por usar
+    return items.filter(it => (it.totalCount || Math.max(1, Number(it.qty||1))) > (it.usedCount || 0));
+  }, [items, tab]);
+
   // Agrupa por orderId para la vista “Orden de compra”
   const groups = useMemo(() => {
     const by: Record<string, UserTicket[]> = {};
-    for (const it of items) {
+    for (const it of itemsFiltered) {
       const key = it.orderId || "SIN_ORDEN";
       (by[key] ||= []).push(it);
     }
     return by;
-  }, [items]);
+  }, [itemsFiltered]);
 
   useEffect(() => {
     (async () => {
@@ -207,10 +253,10 @@ export default function MisTickets() {
       try {
         const out: UserTicket[] = [];
 
-        // === Modelo NUEVO: 1 doc por ítem en `orders`
+        // === Modelo NUEVO: 1 doc por ítem en `finishedOrder`
         // Query 1: por buyerUid
         const q1 = query(
-          collection(firebaseDb, "orders"),
+          collection(firebaseDb, "finishedOrder"),
           where("buyerUid", "==", user.uid)
         );
         const snap1 = await getDocs(q1);
@@ -229,6 +275,8 @@ export default function MisTickets() {
             currency: x.currency || "CLP",
             paidAt: x.paidAt ?? x.updatedAt ?? x.createdAt ?? null,
             createdAt: x.createdAt ?? null,
+            eventStart: x.eventStart || null,
+            eventEnd: x.eventEnd || null,
             raw: { id: d.id, ...x },
           });
         });
@@ -236,7 +284,7 @@ export default function MisTickets() {
         // Query 2: por email (por si buyerUid no se guardó o usuario cambió)
         if (user.email) {
           const q2 = query(
-            collection(firebaseDb, "orders"),
+            collection(firebaseDb, "finishedOrder"),
             where("email", "==", user.email)
           );
           const snap2 = await getDocs(q2);
@@ -255,6 +303,8 @@ export default function MisTickets() {
               currency: x.currency || "CLP",
               paidAt: x.paidAt ?? x.updatedAt ?? x.createdAt ?? null,
               createdAt: x.createdAt ?? null,
+              eventStart: x.eventStart || null,
+              eventEnd: x.eventEnd || null,
               raw: { id: d.id, ...x },
             });
           });
@@ -308,9 +358,40 @@ export default function MisTickets() {
           })
         );
 
+        // Completar contadores de uso por ítem (tickets usados vs total)
+        async function countUsageForItem(it: UserTicket): Promise<UserTicket> {
+          try {
+            // 1) Preferimos orderItemId
+            const orderItemId = (it as any)?.raw?.id as string | undefined;
+            let docs: any[] = [];
+            if (orderItemId) {
+              const q1 = query(collection(firebaseDb, 'tickets'), where('orderItemId','==', orderItemId));
+              const s1 = await getDocs(q1);
+              docs = s1.docs.map(d=> ({ id:d.id, ...(d.data() as any) }));
+            }
+            // 2) Fallback por orderId + ticketTypeId/ticketId
+            if (docs.length === 0) {
+              const q2 = query(collection(firebaseDb, 'tickets'), where('orderId','==', it.orderId));
+              const s2 = await getDocs(q2);
+              const typeId = (it.ticketId as string) || (it as any)?.ticketTypeId || null;
+              docs = s2.docs
+                .map(d=> ({ id:d.id, ...(d.data() as any) }))
+                .filter(d => !typeId || d.ticketTypeId === typeId || d.ticketId === typeId);
+            }
+            const total = docs.length || Math.max(1, Number(it.qty || 1));
+            const used = docs.filter(d => d?.status === 'used' || typeof d?.usedAt === 'number').length;
+            return { ...it, totalCount: total, usedCount: used };
+          } catch {
+            const total = Math.max(1, Number(it.qty || 1));
+            return { ...it, totalCount: total, usedCount: 0 };
+          }
+        }
+
+        const withUsage = await Promise.all(enriched.map(countUsageForItem));
+
         // Ordenar por fecha de pago (desc)
-        enriched.sort((a, b) => (b.paidAt || 0) - (a.paidAt || 0));
-        setItems(enriched);
+        withUsage.sort((a, b) => (b.paidAt || 0) - (a.paidAt || 0));
+        setItems(withUsage);
       } catch (e) {
         console.error("MisTickets: error cargando", e);
         setItems([]);
@@ -325,8 +406,32 @@ export default function MisTickets() {
     setDetail(t);
     setQrLoading(true);
     setQrList([]);
+    // Helper para extraer campos QR + nominativo + buyer/evento info
+    const pickFromTicketDoc = (d: any, id: string) => {
+      const data = d as any;
+      const text = data?.qr?.text || data?.qrText || data?.code || data?.qr || "";
+      const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
+      const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
+      const attendee = (data?.attendee as any) || null;
+      const guestIndex = (data?.guestIndex as number) ?? null;
+      return text
+        ? {
+            id,
+            text,
+            status: status === "void" ? "void" : status === "used" ? "used" : "valid",
+            usedAt,
+            attendee,
+            guestIndex,
+            buyerName: data?.buyerName || data?.attendee?.nombre || null,
+            buyerRut: data?.buyerRut || data?.attendee?.rut || null,
+            eventStart: data?.eventStart || data?.orderItem?.eventStart || null,
+            eventEnd: data?.eventEnd || data?.orderItem?.eventEnd || null,
+            eventName: data?.eventName || null,
+          }
+        : null;
+    };
     try {
-      let qrDocs: { id: string; text: string; status: "valid" | "used" | "void"; usedAt?: number | null }[] = [];
+      let qrDocs: any[] = [];
 
       // 0) Preferimos listar explícitamente por ticketIds (si vienen en el detalle)
       const explicitIds = ((t as any)?.raw?.ticketIds as string[] | undefined)?.filter(Boolean) || [];
@@ -337,37 +442,16 @@ export default function MisTickets() {
               const dref = doc(firebaseDb, "tickets", id);
               const dsnap = await getDoc(dref);
               if (!dsnap.exists()) return null;
-              const data = dsnap.data() as any;
-              const text =
-                data?.qr?.text ||
-                data?.qrText ||
-                data?.code ||
-                data?.qr ||
-                "";
-              const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-              const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-              return text
-                ? {
-                    id: dsnap.id,
-                    text,
-                    status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                    usedAt,
-                  }
-                : null;
+              return pickFromTicketDoc(dsnap.data(), dsnap.id);
             } catch {
               return null;
             }
           })
         );
-        qrDocs = docs.filter(Boolean) as {
-          id: string;
-          text: string;
-          status: "valid" | "used" | "void";
-          usedAt?: number | null;
-        }[];
+        qrDocs = docs.filter(Boolean) as any[];
       }
 
-      // 1) Si no había ticketIds o ninguno útil, intentar por orderItemId (raw.id del ítem en `orders`)
+      // 1) Si no había ticketIds o ninguno útil, intentar por orderItemId (raw.id del ítem en `finishedOrder`)
       if (qrDocs.length === 0) {
         const orderItemId = (t as any)?.raw?.id as string | undefined;
         if (orderItemId) {
@@ -377,25 +461,7 @@ export default function MisTickets() {
           );
           const s1 = await getDocs(q1);
           qrDocs = s1.docs
-            .map((d) => {
-              const data = d.data() as any;
-              const text =
-                data?.qr?.text ||
-                data?.qrText ||
-                data?.code ||
-                data?.qr ||
-                "";
-              const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-              const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-              return text
-                ? {
-                    id: d.id,
-                    text,
-                    status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                    usedAt,
-                  }
-                : null;
-            })
+            .map((d) => pickFromTicketDoc(d.data(), d.id))
             .filter(Boolean) as any;
         }
       }
@@ -411,29 +477,71 @@ export default function MisTickets() {
         qrDocs = s2.docs
           .map((d) => {
             const data = d.data() as any;
-            const text =
-              data?.qr?.text ||
-              data?.qrText ||
-              data?.code ||
-              data?.qr ||
-              "";
-            const status = (data?.status as string) || (data?.usedAt ? "used" : "valid");
-            const usedAt = (typeof data?.usedAt === "number" ? data.usedAt : null) as number | null;
-            const matchType =
-              !typeId ||
-              data?.ticketTypeId === typeId ||
-              data?.ticketId === typeId;
-            return matchType && text
-              ? {
-                  id: d.id,
-                  text,
-                  status: status === "void" ? "void" : status === "used" ? "used" : "valid",
-                  usedAt,
-                }
-              : null;
+            const typeId = (t.ticketId as string) || (t as any)?.ticketTypeId || null;
+            const matchType = !typeId || data?.ticketTypeId === typeId || data?.ticketId === typeId;
+            return matchType ? pickFromTicketDoc(data, d.id) : null;
           })
           .filter(Boolean) as any;
       }
+
+      // 2.5) Completar nominativos desde ordersWeb/{orderId}/attendees si faltan y ordenar por guestIndex
+      try {
+        const selOrder = t.orderId;
+        const missing = Array.isArray(qrDocs) && qrDocs.some((q: any) => !q || !q.attendee || typeof q.guestIndex !== 'number');
+        if (selOrder && missing) {
+          const atSnap = await getDocs(collection(firebaseDb, 'ordersWeb', selOrder, 'attendees'));
+          const attendeesByIdx = atSnap.docs
+            .map(d => ({ id: d.id, ...(d.data() as any) }))
+            .filter(a => a && (a.guestIndex || a.id))
+            .sort((a,b) => Number(a.guestIndex||a.id) - Number(b.guestIndex||b.id));
+
+          // Mezclar por posición: Cliente 1 → ticket 1, Cliente 2 → ticket 2, ...
+          qrDocs = (qrDocs as any[]).map((q, i) => {
+            if (!q) return q;
+            const already = typeof q.guestIndex === 'number' && q.attendee;
+            if (!already) {
+              const att = attendeesByIdx[i];
+              if (att) {
+                return { ...q, attendee: {
+                  nombre: att.nombre ?? null,
+                  correo: att.correo ?? null,
+                  rut: att.rut ?? null,
+                  telefono: att.telefono ?? null,
+                  sexo: att.sexo ?? null,
+                  fecha_nacimiento: att.fecha_nacimiento ?? null,
+                  edad: typeof att.edad === 'number' ? att.edad : null,
+                }, guestIndex: att.guestIndex ?? (i+1) };
+              }
+            }
+            return q;
+          });
+        }
+      } catch (e) {
+        console.warn('[MisTickets] fallback attendees merge failed', e);
+      }
+
+      // 2.6) Si hay guestIndex, ordenamos por Cliente N para que el Ticket 1 muestre al Cliente 1
+      try {
+        const hasGI = Array.isArray(qrDocs) && qrDocs.some((q: any) => typeof q?.guestIndex === 'number');
+        if (hasGI) {
+          qrDocs.sort((a: any, b: any) => ( (a?.guestIndex ?? 9e9) - (b?.guestIndex ?? 9e9) ));
+        }
+      } catch {}
+
+      // Hidratar fechas del evento en el detalle si faltan, usando el primer ticket
+      try {
+        const firstDoc: any = Array.isArray(qrDocs) && qrDocs[0] ? qrDocs[0] : null;
+        if (firstDoc) {
+          setDetail((prev) => {
+            if (!prev) return prev;
+            const start = prev.eventStart || firstDoc.eventStart || null;
+            const end = prev.eventEnd || firstDoc.eventEnd || null;
+            const name = prev.eventName || firstDoc.eventName || null;
+            if (start === prev.eventStart && end === prev.eventEnd && name === prev.eventName) return prev;
+            return { ...prev, eventStart: start, eventEnd: end, eventName: name };
+          });
+        }
+      } catch {}
 
       // 3) Generar imágenes (dataURL local o URL de fallback)
       const imgs = await Promise.all(
@@ -446,7 +554,13 @@ export default function MisTickets() {
         }))
       );
 
-      setQrList(imgs);
+      // Mezcla dataUrl con info nominativa (por id o por posición)
+      const merged = imgs.map((img, i) => {
+        const byId = (qrDocs as any[]).find((q) => q && q.id === img.id);
+        const base = byId || (qrDocs as any[])[i] || ({} as any);
+        return { ...img, attendee: base.attendee || null, guestIndex: typeof base.guestIndex === 'number' ? base.guestIndex : (i+1) } as TicketQR;
+      });
+      setQrList(merged);
     } catch (e) {
       console.warn("QR load error:", e);
       setQrList([]);
@@ -458,8 +572,6 @@ export default function MisTickets() {
   if (!user) {
     return <div className="p-6">Inicia sesión para ver tus tickets.</div>;
   }
-
-  const selectedOrderId = searchParams.get("orden");
 
   /* =========================
    * Vista: Orden de compra
@@ -482,7 +594,7 @@ export default function MisTickets() {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Orden de compra <span className="text-[#8e2afc]">{selectedOrderId}</span>
+            Orden de compra <span className="text-[#FE8B02]">{selectedOrderId}</span>
           </h1>
           <button
             className="px-4 py-2 rounded-md border border-white/15 hover:bg-white/10 w-full sm:w-auto"
@@ -512,7 +624,7 @@ export default function MisTickets() {
               </div>
             </div>
             <div>
-              <div className="text-white/60">Subtotal</div>
+              <div className="text-white/60">Total</div>
               <div className="font-extrabold tracking-tight">
                 {CLP.format(Math.round(total))}
               </div>
@@ -545,7 +657,7 @@ export default function MisTickets() {
                     {t.ticketName || "Ticket"}
                   </div>
                   <div className="text-xs text-white/50 mt-1">
-                    Cantidad: {qty} • Precio: {CLP.format(Math.round(t.price || 0))} • Subtotal:{" "}
+                    Cantidad: {qty} • Precio: {CLP.format(priceWithFee(t))} • Subtotal:{" "}
                     {CLP.format(subtotal)}
                   </div>
                 </div>
@@ -604,23 +716,17 @@ export default function MisTickets() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <KV k="Precio unitario" v={CLP.format(Math.round(detail.price || 0))} />
+                    <KV k="Precio unitario" v={CLP.format(priceWithFee(detail))} />
                     <KV k="Cantidad" v={String(Math.max(1, Number(detail.qty || 1)))} />
                     <KV
                       k="Subtotal"
-                      v={CLP.format(
-                        Math.round(
-                          Number.isFinite(detail.amount as any)
-                            ? (detail.amount as number)
-                            : Math.round(detail.price || 0) * Math.max(1, Number(detail.qty || 1))
-                        )
-                      )}
+                      v={CLP.format(getSubtotal(detail))}
                     />
                     <KV k="Moneda" v={detail.currency || "CLP"} />
                     <KV k="Pagado" v={fmtDate(detail.paidAt ?? null)} />
                     <KV k="Creado" v={fmtDate(detail.createdAt ?? null)} />
-                    <KV k="Evento ID" v={detail.eventId || "—"} />
-                    <KV k="Ticket ID" v={detail.ticketId || "—"} />
+                    <KV k="Inicio evento" v={detail.eventStart ? new Date(detail.eventStart).toLocaleString("es-CL") : "—"} />
+                    <KV k="Término evento" v={detail.eventEnd ? new Date(detail.eventEnd).toLocaleString("es-CL") : "—"} />
                   </div>
 
                   {/* QRs del ticket */}
@@ -654,7 +760,7 @@ export default function MisTickets() {
 
                               {/* Cabecera: Ticket N */}
                               <div className="w-full text-center text-xs font-medium pt-2 pb-1 px-2">
-                                Ticket {i + 1}
+                                Ticket {i + 1}{q.guestIndex ? ` • Cliente ${q.guestIndex}` : ""}
                               </div>
 
                               {/* Imagen QR: ocupa el ancho completo de la card */}
@@ -663,6 +769,23 @@ export default function MisTickets() {
                                 alt={`QR ${i + 1}`}
                                 className="w-[80%] max-w-[250px] mx-auto h-auto block"
                               />
+
+                              {/* Datos nominativos del asistente */}
+                              {q.attendee && (
+                                <div className="mx-2 mt-2 mb-1 rounded border border-white/10 bg-white/5 p-2 text-[12px] grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
+                                  <div><span className="text-white/60">Asignado a: </span><b>{q.attendee.nombre || "—"}</b></div>
+                                  {q.attendee.correo && <div><span className="text-white/60">Correo: </span>{q.attendee.correo}</div>}
+                                  {(q.attendee?.rut || q.buyerRut) && (
+                                    <div>
+                                      <span className="text-white/60">RUT: </span>
+                                      {q.attendee?.rut || q.buyerRut}
+                                    </div>
+                                  )}
+                                  {q.attendee.telefono && <div><span className="text-white/60">Teléfono: </span>{q.attendee.telefono}</div>}
+                                  {typeof q.attendee.edad === 'number' && <div><span className="text-white/60">Edad: </span>{q.attendee.edad}</div>}
+                                  {q.attendee.fecha_nacimiento && <div><span className="text-white/60">Nac.: </span>{q.attendee.fecha_nacimiento}</div>}
+                                </div>
+                              )}
 
                               {/* Código + acciones */}
                               <div className="px-2 pt-2 pb-3 flex flex-col items-center gap-1">
@@ -706,17 +829,7 @@ export default function MisTickets() {
                     )}
                   </div>
 
-                  {/* Extras del raw si están disponibles */}
-                  {detail.raw && (
-                    <div className="mt-2">
-                      <details className="text-sm text-white/80">
-                        <summary className="cursor-pointer select-none text-white/70">Ver datos completos (raw)</summary>
-                        <pre className="mt-2 max-h-64 overflow-auto text-xs bg-black/40 p-2 rounded">
-{JSON.stringify(detail.raw, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
-                  )}
+                  {/* Extras del raw eliminados */}
                 </div>
               </div>
             </div>
@@ -732,11 +845,31 @@ export default function MisTickets() {
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-[#b688ff]">
-          Mis tickets
+        <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+          Mis  <span className="bg-gradient-to-r from-[#FE8B02] to-[#FF3403] bg-clip-text text-transparent">Tickets</span>
         </h1>
         <p className="text-foreground/70 mt-2">Tus compras de entradas en GoUp.</p>
       </header>
+
+      {/* Tabs UI */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {[
+          { key:'all', label:'Todos' },
+          { key:'used', label:'Usados' },
+          { key:'upcoming', label:'Por asistir' },
+        ].map(t => {
+          const active = tab === (t.key as any);
+          return (
+            <button
+              key={t.key}
+              onClick={() => { const p = new URLSearchParams(searchParams); p.set('tab', String(t.key)); setSearchParams(p, { replace:false }); }}
+              className={`px-3 py-1.5 rounded-full border text-sm ${active ? 'bg-[#FE8B02] border-[#FE8B02] text-black' : 'border-white/20 hover:bg-white/10'}`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
@@ -757,7 +890,7 @@ export default function MisTickets() {
           {/* Mobile */}
           <div className="md:hidden">
             <ul className="grid gap-3">
-              {Object.entries(groups).map(([orderId, group]) => {
+          {Object.entries(groups).map(([orderId, group]) => {
                 const first = group[0];
                 const total = group.reduce((acc, t) => acc + getSubtotal(t), 0);
                 const totalQty = group.reduce((acc, t) => acc + getQty(t), 0);
@@ -790,7 +923,7 @@ export default function MisTickets() {
                     <div className="shrink-0 text-right">
                       <div className="font-semibold">{CLP.format(Math.round(total))}</div>
                       <button
-                        className="mt-2 px-3 py-1.5 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs"
+                        className={`mt-2 px-3 py-1.5 rounded-md bg-[#FE8B02] hover:bg-[${ORANGE_HOVER}] text-xs`}
                         onClick={() => {
                           const p = new URLSearchParams(searchParams);
                           p.set("orden", orderId);
@@ -830,7 +963,7 @@ export default function MisTickets() {
                     <div className="mt-2 flex items-center justify-between">
                       <div className="font-semibold">{CLP.format(Math.round(total))}</div>
                       <button
-                        className="px-3 py-1.5 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] text-xs"
+                        className={`px-3 py-1.5 rounded-md bg-[#FE8B02] hover:bg-[${ORANGE_HOVER}] text-xs`}
                         onClick={() => {
                           const p = new URLSearchParams(searchParams);
                           p.set("orden", orderId);

@@ -2,14 +2,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AddressMapInputGoogle from "@/components/form/AddressMapInput";
 import { GoogleMap, MarkerF, useJsApiLoader } from "@react-google-maps/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { googleMapsLink, wazeLink } from "@/lib/mapLinks";
 import { SiInstagram, SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { FiShare2 } from "react-icons/fi";
 import { LuGlobe } from "react-icons/lu";
 import { MdOutlineMail } from "react-icons/md";
 
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { useAuth } from "@/auth/AuthContext";
@@ -19,6 +19,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { RHFInput, RHFTextarea, RHFSelect, RHFFile } from "@/components/form/control";
+import { MUSIC_GENRES, ALL_SUBGENRES, getSubgenres } from "@/lib/musicGenres";
 
 /* ---------------- Types & helpers ---------------- */
 type DBClubes = {
@@ -37,6 +38,8 @@ type DBClubes = {
   instagram: string | null;
   imagen: string | null;
   banner: string | null;
+  galeria1?: string | null;
+  galeria2?: string | null;
   accesibilidad: boolean;
   estacionamientos: boolean;
   guardaropia: boolean;
@@ -45,6 +48,8 @@ type DBClubes = {
   wifi: boolean;
   ambientes: number | null;
   banos: number | null;
+  generos?: string[] | null;
+  generos_sub?: string[] | null;
 };
 
 const asSiNo = (b?: boolean | null) => (b ? "Sí" : "No");
@@ -79,16 +84,22 @@ const editSchema = z.object({
   wifi: z.union([z.boolean(), z.string()]).default("No"),
   ambientes: z.union([z.coerce.number(), z.string()]).optional().or(z.literal("")),
   banos: z.union([z.coerce.number(), z.string()]).optional().or(z.literal("")),
+  mainGenres: z.array(z.string()).optional().default([] as string[]),
+  subGenres: z.array(z.string()).optional().default([] as string[]),
   imagenFile: z.any().optional().nullable(),
   bannerFile: z.any().optional().nullable(),
+  galeria1File: z.any().optional().nullable(),
+  galeria2File: z.any().optional().nullable(),
 });
 type EditForm = z.infer<typeof editSchema>;
 
 /* ---------------- UI helpers ---------------- */
 const BTN_PRIMARY =
-  "inline-flex items-center justify-center rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
+  "inline-flex items-center justify-center rounded bg-[#FE8B02] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
 const BTN_SECONDARY =
   "inline-flex items-center justify-center px-4 py-2 rounded border /20 hover:bg-white/10 text-sm font-semibold";
+const BTN_DANGER =
+  "inline-flex items-center justify-center rounded bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
 
 /** Colores de marca para tintar los íconos */
 const BRAND = {
@@ -168,6 +179,11 @@ export default function ClubAdmin() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const originalValuesRef = useRef<EditForm | null>(null);
 
   // Carga del script de Google Maps
@@ -227,8 +243,12 @@ export default function ClubAdmin() {
           wifi: asSiNo(data.wifi),
           ambientes: data.ambientes ?? "",
           banos: data.banos ?? "",
+          mainGenres: Array.isArray((data as any).generos) ? ((data as any).generos as string[]) : [],
+          subGenres: Array.isArray((data as any).generos_sub) ? ((data as any).generos_sub as string[]) : [],
           imagenFile: null,
           bannerFile: null,
+          galeria1File: null,
+          galeria2File: null,
         };
         methods.reset(defaults);
         originalValuesRef.current = defaults;
@@ -249,7 +269,10 @@ export default function ClubAdmin() {
   const mailHref = club?.email ? `mailto:${club.email}` : undefined;
 
   /* -------- Upload helper -------- */
-  const uploadImage = async (file: File | null, folder: "imagen" | "banner") => {
+  const uploadImage = async (
+    file: File | null,
+    folder: "imagen" | "banner" | "galeria1" | "galeria2"
+  ) => {
     if (!file || !user) return null;
     const path = `${folder}/${user.uid}/${Date.now()}_${file.name}`;
     const ref = storageRef(storage, path);
@@ -270,6 +293,8 @@ export default function ClubAdmin() {
     try {
       const newImg = await uploadImage(values.imagenFile, "imagen");
       const newBanner = await uploadImage(values.bannerFile, "banner");
+      const newGal1 = await uploadImage(values.galeria1File, "galeria1");
+      const newGal2 = await uploadImage(values.galeria2File, "galeria2");
 
       const payload: Partial<DBClubes> = {
         nombre: values.nombre,
@@ -291,8 +316,12 @@ export default function ClubAdmin() {
         wifi: asBool(values.wifi),
         ambientes: asIntOrNull(values.ambientes),
         banos: asIntOrNull(values.banos),
+        generos: values.mainGenres ?? [],
+        generos_sub: values.subGenres ?? [],
         imagen: newImg ?? club?.imagen ?? null,
         banner: newBanner ?? club?.banner ?? null,
+        galeria1: newGal1 ?? club?.galeria1 ?? null,
+        galeria2: newGal2 ?? club?.galeria2 ?? null,
       };
 
       const clubRef = doc(firestore, "club", docId);
@@ -323,8 +352,12 @@ export default function ClubAdmin() {
         wifi: asSiNo(merged.wifi),
         ambientes: merged.ambientes ?? "",
         banos: merged.banos ?? "",
+        mainGenres: Array.isArray((merged as any).generos) ? ((merged as any).generos as string[]) : [],
+        subGenres: Array.isArray((merged as any).generos_sub) ? ((merged as any).generos_sub as string[]) : [],
         imagenFile: null,
         bannerFile: null,
+        galeria1File: null,
+        galeria2File: null,
       };
       methods.reset(newDefaults);
       originalValuesRef.current = newDefaults;
@@ -460,7 +493,7 @@ export default function ClubAdmin() {
                 src={club.banner}
                 alt=""
                 aria-hidden
-                className="absolute inset-0 w-full h-full object-cover scale-[1.35] blur-[72px] opacity-[0.55]"
+                className="absolute inset-0 w-full h-full object-cover scale-[1.35] blur-[50px] opacity-[0.65]"
               />
               <div className="absolute inset-0 [background:radial-gradient(1200px_560px_at_64%_32%,rgba(0,0,0,0)_0%,rgba(0,0,0,.55)_60%,rgba(0,0,0,.98)_100%)]" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/60 to-black/80" />
@@ -625,7 +658,7 @@ export default function ClubAdmin() {
                           toast.error("No hay dirección/ubicación del club.");
                         }
                       }}
-                      className={`px-4 py-2 rounded-full text-sm font-semibold shadow text-center ${
+                      className={`px-4 py-2 rounded text-sm font-semibold shadow text-center ${
                         gDisabled ? "bg-white/20 text-white/60 cursor-not-allowed" : "bg-white/10 hover:bg-white/15"
                       }`}
                     >
@@ -641,7 +674,7 @@ export default function ClubAdmin() {
                           toast.error("No hay dirección/ubicación del club.");
                         }
                       }}
-                      className={`px-4 py-2 rounded-full text-sm font-semibold shadow text-center ${
+                      className={`px-4 py-2 rounded text-sm font-semibold shadow text-center ${
                         wDisabled ? "bg-white/20 text-white/60 cursor-not-allowed" : "bg-white/10 hover:bg-white/15"
                       }`}
                     >
@@ -652,14 +685,24 @@ export default function ClubAdmin() {
               </div>
 
               {/* Acciones */}
-              <div className="mt-4 flex gap-2">
-                <Link to={backHref} className={BTN_SECONDARY}>
-                  ← Volver
-                </Link>
-                {dbUser?.rol === "admin" && (
-                  <button onClick={() => setEditMode(true)} className={BTN_PRIMARY}>
-                    Editar club
-                  </button>
+              <div className="mt-4 rounded flex gap-2">
+                {!editMode ? (
+                  <>
+                    <Link to={backHref} className={BTN_SECONDARY}>← Volver</Link>
+                    {dbUser?.rol === "admin" && (
+                      <>
+                        <button onClick={() => setEditMode(true)} className={BTN_PRIMARY}>Editar club</button>
+                        <button onClick={() => setDeleteOpen(true)} className={BTN_DANGER}>Eliminar club</button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleCancel} className={BTN_SECONDARY}>Cancelar</button>
+                    {dbUser?.rol === "admin" && (
+                      <button onClick={() => setDeleteOpen(true)} className={BTN_DANGER}>Eliminar club</button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -676,7 +719,6 @@ export default function ClubAdmin() {
             {/* Grid principal */}
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-               
 
                 {club.descripcion && (
                   <section className="p-5 bg-white/[0.03] rounded-xl border /10">
@@ -684,6 +726,44 @@ export default function ClubAdmin() {
                     <p className="/80 leading-relaxed">{club.descripcion}</p>
                   </section>
                 )}
+
+                {(Array.isArray(club.generos) && club.generos.length > 0) || (Array.isArray(club.generos_sub) && club.generos_sub.length > 0) ? (
+                  <section className="p-5 bg-white/[0.03] rounded-xl border /10">
+                    <h2 className="text-lg font-bold text-[#cbb3ff] mb-2">Estilo musical</h2>
+
+                    {Array.isArray(club.generos) && club.generos.length > 0 && (
+                      <div className="mb-3">
+                        <div className="/70 text-xs mb-1">Géneros principales</div>
+                        <div className="flex flex-wrap gap-2">
+                          {club.generos.map((g) => (
+                            <span
+                              key={`gen-${g}`}
+                              className="text-xs px-2 py-1 rounded bg-white/10 border border-white/15"
+                            >
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {Array.isArray(club.generos_sub) && club.generos_sub.length > 0 && (
+                      <div>
+                        <div className="/70 text-xs mb-1">Géneros</div>
+                        <div className="flex flex-wrap py-1 gap-2">
+                          {club.generos_sub.map((s) => (
+                            <span
+                              key={`sub-${s}`}
+                              className="text-xs px-2 py-1 rounded bg-[#FE8B02]/15 border border-[#FE8B02]/30 text-[#cbb3ff]"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                ) : null}
 
                 <section className="p-5 bg-white/[0.03] rounded-xl border /10">
                   <h2 className="text-lg font-bold text-[#cbb3ff] mb-3">Servicios</h2>
@@ -706,38 +786,54 @@ export default function ClubAdmin() {
                     {club.wifi && <span className="text-xs px-2 py-1 rounded bg-white/10 border border-white/15">Wi-Fi</span>}
                   </div>
                 </section>
+
+                {(club.galeria1 || club.galeria2) && (
+                  <section className="p-5 bg-white/[0.03] rounded-xl border /10">
+                    <h2 className="text-lg font-bold text-[#cbb3ff] mb-3">Galería</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <figure className="rounded-lg overflow-hidden border /10 bg-white/5 aspect-[4/3]">
+                        {club.galeria1 ? (
+                          <button
+                            type="button"
+                            className="w-full h-full"
+                            onClick={() => setLightboxSrc(club.galeria1!)}
+                            title="Ver imagen"
+                          >
+                            <img
+                              src={club.galeria1}
+                              alt="Galería 1"
+                              className="w-full h-full object-cover transition-transform hover:scale-[1.02] cursor-zoom-in"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-full h-full grid place-items-center text-white/60 text-sm">Sin imagen</div>
+                        )}
+                      </figure>
+                      <figure className="rounded-lg overflow-hidden border /10 bg-white/5 aspect-[4/3]">
+                        {club.galeria2 ? (
+                          <button
+                            type="button"
+                            className="w-full h-full"
+                            onClick={() => setLightboxSrc(club.galeria2!)}
+                            title="Ver imagen"
+                          >
+                            <img
+                              src={club.galeria2}
+                              alt="Galería 2"
+                              className="w-full h-full object-cover transition-transform hover:scale-[1.02] cursor-zoom-in"
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-full h-full grid place-items-center text-white/60 text-sm">Sin imagen</div>
+                        )}
+                      </figure>
+                    </div>
+                  </section>
+                )}
               </div>
 
               {/* Aside */}
               <aside className="space-y-6">
-  {club.latitud && club.longitud && (
-    <section className="p-5 bg-white/[0.03] rounded-xl border border-white/10">
-      <h3 className="text-sm font-semibold text-[#cbb3ff] mb-2">Mapa</h3>
-
-      {/* sangrado hasta los bordes del card */}
-      <div className="-mx-5 -mb-5 mt-3 rounded-b-xl overflow-hidden">
-        <div className="h-64 md:h-72">
-          {!isLoaded ? (
-            <div className="h-full w-full bg-white/5 animate-pulse" />
-          ) : (
-            <GoogleMap
-              mapContainerClassName="w-full h-full"
-              zoom={16}
-              center={{ lat: club.latitud!, lng: club.longitud! }}
-              options={{
-                disableDefaultUI: true,
-                clickableIcons: false,
-                gestureHandling: "greedy",
-              }}
-            >
-              <MarkerF position={{ lat: club.latitud!, lng: club.longitud! }} />
-            </GoogleMap>
-          )}
-        </div>
-      </div>
-    </section>
-  )}
-
                 <section className="p-5 bg-white/[0.03] rounded-xl border /10">
                   <h3 className="text-sm font-semibold text-[#cbb3ff] mb-2">Contacto</h3>
                   <div className="space-y-2 text-sm /80">
@@ -747,6 +843,33 @@ export default function ClubAdmin() {
                     {club.instagram && <div className="rounded-md bg-white/5 border /10 px-3 py-2"><p className="/60 text-xs">Instagram</p><p className=" break-words">{club.instagram}</p></div>}
                   </div>
                 </section>
+
+                {club.latitud && club.longitud && (
+                  <section className="p-5 bg-white/[0.03] rounded-xl border border-white/10">
+                    <h3 className="text-sm font-semibold text-[#cbb3ff] mb-2">Mapa</h3>
+                    {/* sangrado hasta los bordes del card */}
+                    <div className="-mx-5 -mb-5 mt-3 rounded-b-xl overflow-hidden">
+                      <div className="h-64 md:h-72">
+                        {!isLoaded ? (
+                          <div className="h-full w-full bg-white/5 animate-pulse" />
+                        ) : (
+                          <GoogleMap
+                            mapContainerClassName="w-full h-full"
+                            zoom={16}
+                            center={{ lat: club.latitud!, lng: club.longitud! }}
+                            options={{
+                              disableDefaultUI: true,
+                              clickableIcons: false,
+                              gestureHandling: "greedy",
+                            }}
+                          >
+                            <MarkerF position={{ lat: club.latitud!, lng: club.longitud! }} />
+                          </GoogleMap>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
               </aside>
             </div>
           </>
@@ -762,7 +885,7 @@ export default function ClubAdmin() {
               noValidate
             >
               <section className="space-y-4">
-                <h2 className="text-xl font-bold text-[#8e2afc]">Identidad & contacto</h2>
+                <h2 className="text-xl font-bold text-[#FE8B02]">Identidad & contacto</h2>
                 <RHFInput name="nombre" label="Nombre del club *" />
                 <RHFTextarea name="descripcion" label="Descripción" rows={3} />
 
@@ -789,8 +912,107 @@ export default function ClubAdmin() {
                 </div>
               </section>
 
+              {/* ==== Genres chip selector ==== */}
+              <section className="space-y-3">
+                <h2 className="text-xl font-bold text-[#FE8B02]">Géneros</h2>
+                {/* Chips de géneros principales */}
+                <div className="text-sm">
+                  <div className="/70 mb-2">Géneros principales</div>
+                  <div className="flex flex-wrap gap-2">
+                    {MUSIC_GENRES.map((g) => {
+                      const selected = (methods.watch("mainGenres") ?? []).includes(g.genre);
+                      return (
+                        <button
+                          key={g.slug}
+                          type="button"
+                          onClick={() => {
+                            const curr = new Set(methods.getValues("mainGenres") ?? []);
+                            if (curr.has(g.genre)) curr.delete(g.genre); else curr.add(g.genre);
+                            const next = Array.from(curr);
+                            methods.setValue("mainGenres", next, { shouldDirty: true });
+                            // Nota: ya NO limpiamos subgéneros al deseleccionar un género principal; los chips se quitan solo con la "x".
+                          }}
+                          className={`px-2 py-1 rounded border text-xs font-medium ${
+                            selected ? "bg-[#FE8B02]/20 border-[#FE8B02]/40 text-[#cbb3ff]" : "bg-white/5 border-white/15 hover:bg-white/10"
+                          }`}
+                        >
+                          {g.genre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Subgéneros según lo seleccionado */}
+                <div className="text-sm">
+                  <div className="/70 mb-2">Subgéneros</div>
+                  <div className="flex flex-wrap gap-2 max-h-56 overflow-auto rounded p-2 bg-white/5 border border-white/10">
+                    {(() => {
+                      const mains = methods.watch("mainGenres") ?? [];
+                      const subs = new Set<string>();
+                      mains.forEach((m: string) => getSubgenres(m).forEach((s) => subs.add(s)));
+                      const allowed = Array.from(subs);
+                      const selectedSubs = new Set(methods.watch("subGenres") ?? []);
+                      return allowed.length ? (
+                        allowed.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              if (selectedSubs.has(s)) selectedSubs.delete(s); else selectedSubs.add(s);
+                              methods.setValue("subGenres", Array.from(selectedSubs), { shouldDirty: true });
+                            }}
+                            className={`px-2 py-1 rounded border text-xs font-medium ${
+                              selectedSubs.has(s) ? "bg-[#FE8B02]/20 border-[#FE8B02]/40 text-[#cbb3ff]" : "bg-white/0 border-white/15 hover:bg-white/10"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-white/60 text-xs">Selecciona al menos un género principal para ver subgéneros.</div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Chips de subgéneros seleccionados (removibles) */}
+                <div className="text-sm">
+                  <div className="/70 mb-2">Subgéneros seleccionados</div>
+                  {(() => {
+                    const selected = (methods.watch("subGenres") as string[] | undefined) ?? [];
+                    if (!selected.length) {
+                      return (
+                        <div className="text-white/60 text-xs">Aún no seleccionas subgéneros.</div>
+                      );
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {selected.map((s) => (
+                          <button
+                            key={`chip-${s}`}
+                            type="button"
+                            onClick={() => {
+                              const next = (methods.getValues("subGenres") ?? []).filter((x: string) => x !== s);
+                              methods.setValue("subGenres", next, { shouldDirty: true });
+                            }}
+                            className="group inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium bg-[#FE8B02]/20 border-[#FE8B02]/40 text-[#cbb3ff] hover:bg-[#FE8B02]/30"
+                            title="Quitar subgénero"
+                          >
+                            <span className="truncate max-w-[10rem]">{s}</span>
+                            <svg viewBox="0 0 20 20" className="w-3.5 h-3.5 opacity-90 group-hover:opacity-100" aria-hidden>
+                              <path fill="currentColor" d="M6.3 6.3a1 1 0 0 1 1.4 0L10 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4L11.4 10l2.3 2.3a1 1 0 1 1-1.4 1.4L10 11.4l-2.3 2.3a1 1 0 1 1-1.4-1.4L8.6 10 6.3 7.7a1 1 0 0 1 0-1.4Z" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </section>
+
               <section className="space-y-4">
-                <h2 className="text-xl font-bold text-[#8e2afc]">Servicios & capacidades</h2>
+                <h2 className="text-xl font-bold text-[#FE8B02]">Servicios & capacidades</h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   <RHFSelect name="accesibilidad" label="Accesibilidad" options={["Sí", "No"]} />
                   <RHFSelect name="estacionamientos" label="Estacionamientos" options={["Sí", "No"]} />
@@ -806,7 +1028,7 @@ export default function ClubAdmin() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-xl font-bold text-[#8e2afc]">Imágenes</h2>
+                <h2 className="text-xl font-bold text-[#FE8B02]">Imágenes</h2>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <div className="/70 mb-2">Avatar actual</div>
@@ -835,6 +1057,35 @@ export default function ClubAdmin() {
                 </div>
               </section>
 
+              <section className="space-y-4">
+                <h2 className="text-xl font-bold text-[#FE8B02]">Galería (2 imágenes)</h2>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="/70 mb-2">Imagen 1 actual</div>
+                    <div className="rounded border /10 mb-2 h-48 overflow-hidden">
+                      {club.galeria1 ? (
+                        <img src={club.galeria1} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-white/10 grid place-items-center text-sm text-white/70">Sin imagen</div>
+                      )}
+                    </div>
+                    <RHFFile name="galeria1File" label="Reemplazar imagen 1" />
+                  </div>
+                  <div>
+                    <div className="/70 mb-2">Imagen 2 actual</div>
+                    <div className="rounded border /10 mb-2 h-48 overflow-hidden">
+                      {club.galeria2 ? (
+                        <img src={club.galeria2} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-white/10 grid place-items-center text-sm text-white/70">Sin imagen</div>
+                      )}
+                    </div>
+                    <RHFFile name="galeria2File" label="Reemplazar imagen 2" />
+                  </div>
+                </div>
+                <p className="text-xs text-white/50">Formato sugerido 4:3 · JPG/PNG · &lt; 2MB</p>
+              </section>
+
               {/* Sticky toolbar */}
               <div className="sticky bottom-0 left-0 right-0 bg-black/70 backdrop-blur px-4 py-3 flex justify-end gap-3 border-t /10">
                 <button type="button" onClick={handleCancel} className={BTN_SECONDARY}>
@@ -860,6 +1111,88 @@ export default function ClubAdmin() {
                 </button>
                 <button className={BTN_PRIMARY} disabled={saving} onClick={() => onConfirmSave()}>
                   Sí, guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {deleteOpen && club && (
+          <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70 p-4">
+            <div className="panel w-[92vw] max-w-md p-6">
+              <h3 className="text-lg font-bold text-red-400 mb-2">Eliminar club</h3>
+              <p className="text-sm text-white/80 mb-3">
+                Esta acción es permanente y no se puede deshacer. Para confirmar, escribe el nombre completo del club exactamente como aparece:
+              </p>
+              <p className="text-sm font-semibold text-white mb-3 bg-white/5 rounded px-2 py-1 border border-white/10">
+                {club.nombre}
+              </p>
+              <label className="block text-sm mb-2">
+                Escribe <span className="font-semibold">"{club.nombre}"</span> para confirmar:
+              </label>
+              <input
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                className="w-full rounded border border-white/15 bg-black/40 px-3 py-2 mb-4 outline-none focus:ring-2 focus:ring-red-500"
+                placeholder={club.nombre}
+                autoFocus
+              />
+
+              <div className="flex justify-end gap-2">
+                <button
+                  className={BTN_SECONDARY}
+                  onClick={() => {
+                    setDeleteOpen(false);
+                    setDeleteInput("");
+                  }}
+                  disabled={deleting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className={BTN_DANGER}
+                  disabled={deleting || deleteInput.trim() !== (club.nombre ?? "").trim()}
+                  onClick={async () => {
+                    if (!docId) return;
+                    if (deleteInput.trim() !== (club.nombre ?? "").trim()) return;
+                    try {
+                      setDeleting(true);
+                      await deleteDoc(doc(firestore, "club", docId));
+                      localStorage.removeItem("adminSelectedClubId");
+                      toast.success("Club eliminado");
+                      setDeleteOpen(false);
+                      navigate("/clubes", { replace: true });
+                    } catch (err: any) {
+                      console.error(err);
+                      toast.error(err?.message || "No se pudo eliminar el club");
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                >
+                  {deleting ? "Eliminando…" : "Eliminar definitivamente"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {lightboxSrc && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm grid place-items-center p-4"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <div className="max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={lightboxSrc}
+                alt="Imagen de galería"
+                className="w-full h-auto rounded-lg border border-white/10 shadow-2xl"
+              />
+              <div className="text-center mt-3">
+                <button
+                  type="button"
+                  onClick={() => setLightboxSrc(null)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-white/10 hover:bg-white/15 border border-white/15 text-sm"
+                >
+                  Cerrar
                 </button>
               </div>
             </div>

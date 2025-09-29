@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { useNavigate } from "react-router-dom";
-import logo from "@/assets/goup_logo.png";
 
 import { RHFInput, RHFFile } from "@/components/form/control";
 
@@ -138,7 +137,7 @@ export default function ProducerCreatePage() {
           </p>
           <button
             onClick={() => navigate("/dashboard/productora")}
-            className="px-4 py-2 rounded bg-[#8e2afc] hover:bg-[#7b1fe0]"
+            className="px-4 py-2 rounded bg-[#FE8B02] hover:bg-[#7b1fe0]"
           >
             Ir a mi productora
           </button>
@@ -148,19 +147,54 @@ export default function ProducerCreatePage() {
   }
 
   return (
-    <main className=" px-4 py-8 ">
-      <header className="max-w-3xl mx-auto space-y-2 mb-8 text-center">
-        <img src={logo} alt="GoUp" className="mx-auto w-28 " />
-        <h1 className="text-3xl md:text-4xl font-extrabold">
-          CREAR <span className="text-[#8e2afc]">PRODUCTORA</span>
-        </h1>
-        <p className="/70">
-          Publica tu productora para gestionar tus datos de contacto.
-        </p>
-      </header>
+    <main className="px-4 pb-12">
+      {/* HERO */}
+      <section className="relative isolate w-full overflow-visible mb-6 md:mb-10">
+        {/* Fondo difuminado con degradado coherente */}
+        <div
+          className="pointer-events-none absolute -inset-x-40 -top-24 -bottom-20 -z-10"
+          style={{
+            WebkitMaskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 72%, rgba(0,0,0,0) 100%)",
+            maskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 72%, rgba(0,0,0,0) 100%)",
+          }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_60%_20%,rgba(142,42,252,.25)_0%,rgba(0,0,0,0)_60%)]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/60 to-black/90" />
+        </div>
 
+        <div className="max-w-5xl mx-auto px-2 pt-10 md:pt-14 pb-10 text-center">
+          <h1 className="text-4xl md:text-8xl font-extrabold tracking-tight">
+            Crea tu <span className="bg-gradient-to-r from-[#b388ff] to-[#FE8B02] bg-clip-text text-transparent">productora</span>
+          </h1>
+          <p className="mt-3 md:mt-4 text-base md:text-lg text-white/80 max-w-3xl mx-auto">
+            Impulsa tu marca: conecta con clubes y fans, publica eventos y centraliza tus datos de contacto. Sube tu logo y deja que GoUp haga el resto.
+          </p>
+
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              Cancelar
+            </button>
+            <button
+            type="submit"
+            form="producer-form"
+              className="px-4 py-2 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0]"
+                >
+                 Crear productora
+                </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FORMULARIO */}
       <FormProvider {...methods}>
         <form
+          id="producer-form"
           onSubmit={onSubmit}
           className="max-w-3xl mx-auto space-y-6"
           noValidate
@@ -186,16 +220,22 @@ export default function ProducerCreatePage() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-xl font-bold text-[#cbb3ff]">
-              Imagen de perfil
-            </h2>
+            <h2 className="text-xl font-bold text-[#cbb3ff]">Imagen de perfil</h2>
             <RHFFile name="imagen" label="Logo / avatar" />
           </section>
 
-          <div className="flex justify-end pt-2">
+          {/* Acciones al final */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              Cancelar
+            </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0]"
+              className="px-5 py-2 rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0]"
             >
               Crear productora
             </button>

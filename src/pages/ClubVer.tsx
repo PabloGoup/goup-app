@@ -93,7 +93,7 @@ type EditForm = z.infer<typeof editSchema>;
 
 // — Button styles
 const BTN_PRIMARY =
-  "inline-flex items-center justify-center rounded-md bg-[#8e2afc] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
+  "inline-flex items-center justify-center rounded-md bg-[#FE8B02] hover:bg-[#7b1fe0] px-4 py-2 text-sm font-semibold disabled:opacity-60 transition";
 const BTN_SECONDARY =
   "inline-flex items-center justify-center px-4 py-2 rounded border /20 hover:bg-white/10 text-sm font-semibold";
 
@@ -101,7 +101,7 @@ const BTN_SECONDARY =
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-bold text-[#8e2afc]">{title}</h2>
+      <h2 className="text-xl font-bold text-[#FE8B02]">{title}</h2>
       <div className="space-y-4">{children}</div>
     </section>
   );
@@ -314,10 +314,10 @@ export default function ClubVer() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/55 to-black" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#8e2afc]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#25123e] via-[#381a63] to-[#FE8B02]" />
         )}
         <div className="absolute bottom-4 left-4 flex items-end gap-4 z-20">
-          <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-[#8e2afc]">
+          <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-[#FE8B02]">
             {club.imagen ? (
               <img
                 src={club.imagen}
@@ -380,12 +380,12 @@ export default function ClubVer() {
                     Servicios
                   </h2>
                   <div className="flex flex-wrap gap-2">
-                    {club.accesibilidad && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Accesibilidad</span>}
-                    {club.estacionamientos && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Estacionamientos</span>}
-                    {club.guardaropia && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Guardarropía</span>}
-                    {club.terraza && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Terraza</span>}
-                    {club.fumadores && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Zona fumadores</span>}
-                    {club.wifi && <span className="text-xs px-2 py-1 rounded bg-[#8e2afc]/60  text-bold border border-[#8e2afc]/20">Wi-Fi</span>}
+                    {club.accesibilidad && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Accesibilidad</span>}
+                    {club.estacionamientos && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Estacionamientos</span>}
+                    {club.guardaropia && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Guardarropía</span>}
+                    {club.terraza && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Terraza</span>}
+                    {club.fumadores && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Zona fumadores</span>}
+                    {club.wifi && <span className="text-xs px-2 py-1 rounded bg-[#FE8B02]/60  text-bold border border-[#FE8B02]/20">Wi-Fi</span>}
                   </div>
                 </section>
               </div>

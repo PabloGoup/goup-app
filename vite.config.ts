@@ -15,11 +15,10 @@ export default defineConfig({
     strictPort: true,
     headers: { "Cache-Control": "no-store" }, // evita caché en dev (Safari)
     proxy: {
-      "/api/flow": {
+      "/api": {
         target: "http://localhost:8788",
         changeOrigin: true,
-        secure: false,            // por si target no tiene https
-        // ws: false,             // normalmente no hace falta, pero puedes forzarlo
+        secure: false,
       },
     },
   },

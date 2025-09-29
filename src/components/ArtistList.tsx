@@ -15,7 +15,7 @@ function ArtistListItem({ a }: { a: ArtistLite }) {
   };
 
   return (
-    <li className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center gap-3">
+    <li className="rounded-xl border border-white/10 ring-1 ring-[#FE8B02]/30 hover:ring-[#FE8B02]/70 hover:shadow-[0_8px_20px_-4px_rgba(254,139,2,0.35)] bg-white/[0.04] p-3 flex items-center gap-3">
       <Link to={`/artistas/${a.slug}`} className="shrink-0">
         <img
           src={cover}
@@ -32,7 +32,7 @@ function ArtistListItem({ a }: { a: ArtistLite }) {
         {!!(a.generos && a.generos.length) && (
           <div className="mt-1 flex flex-wrap gap-1">
             {a.generos.slice(0, 3).map((g) => (
-              <span key={g} className="text-[10px] px-2 py-0.5 rounded bg-white/10 border border-white/15">
+              <span key={g} className="text-[10px] px-2 py-0.5 rounded bg-[#FE8B02]/10 border border-[#FE8B02]/30 text-[#FE8B02]">
                 {g}
               </span>
             ))}
