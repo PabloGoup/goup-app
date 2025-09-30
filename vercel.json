@@ -11,3 +11,14 @@
     { "src": "/api/(.*)", "dest": "/server/flowServer.cjs" }
   ]
 }
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "functions": {
+    "api/*.cjs": { "runtime": "nodejs18.x" },
+    "api/*.js": { "runtime": "nodejs18.x" }
+  }
+}
