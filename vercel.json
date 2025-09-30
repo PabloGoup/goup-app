@@ -3,4 +3,11 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
   ]
+,
+  "functions": {
+    "api/server.js": { "runtime": "nodejs18.x" }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/server/flowServer.cjs" }
+  ]
 }

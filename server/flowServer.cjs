@@ -18,7 +18,12 @@ try {
   console.log(`[FirebaseAdmin] using project: ${proj}`);
 } catch {}
 
+
 if (dns.setDefaultResultOrder) dns.setDefaultResultOrder('ipv4first');
+
+// ==== Vercel/serverless flags and public host fallback ====
+const IS_VERCEL = !!process.env.VERCEL;
+const PUBLIC_HOST = process.env.PUBLIC_HOST || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
 
 // ==== Métricas Embudo (server) ====
@@ -202,7 +207,7 @@ const FLOW_API_KEY = process.env.FLOW_API_KEY || '';
 const FLOW_SECRET_KEY = process.env.FLOW_SECRET_KEY || '';
 const PUBLIC_CONFIRM_URL =
   process.env.PUBLIC_CONFIRM_URL || process.env.VITE_PUBLIC_CONFIRM_URL || '';
-const PUBLIC_RETURN_BASE = process.env.PUBLIC_RETURN_BASE || '';
+const PUBLIC_RETURN_BASE = (process.env.PUBLIC_RETURN_BASE || PUBLIC_HOST || '').trim();
 
 if (!FLOW_API_KEY || !FLOW_SECRET_KEY) {
   console.warn('[Flow] FALTAN FLOW_API_KEY / FLOW_SECRET_KEY en .env');
@@ -262,15 +267,14 @@ console.log(
 
 // Default return URL (backend commit endpoint) for Webpay if client doesn't send one
 function getDefaultWebpayReturnUrl() {
-  const base = process.env.WEBPAY_RETURN_BASE || process.env.PUBLIC_RETURN_BASE || process.env.NGROK_BASE || '';
+  const base = (process.env.WEBPAY_RETURN_BASE || process.env.PUBLIC_RETURN_BASE || PUBLIC_HOST || process.env.NGROK_BASE || '').trim();
   if (!base) return null; // caller should validate
-  // Allow http://localhost for local testing (for return URLs)
   return `${String(base).replace(/\/+$/,'')}/api/webpay/commit`;
 }
 
 // URL pública del FRONT (PaymentReturn)
 function getDefaultFrontReturnUrl(orderId) {
-  const base = (process.env.WEBPAY_RETURN_BASE || process.env.PUBLIC_RETURN_BASE || process.env.NGROK_BASE || '').trim();
+  const base = (process.env.WEBPAY_RETURN_BASE || process.env.PUBLIC_RETURN_BASE || PUBLIC_HOST || process.env.NGROK_BASE || '').trim();
   if (!base) return null;
   const clean = base.replace(/\/$/, '');
   const qs = orderId ? `?order=${encodeURIComponent(orderId)}` : '';
@@ -420,7 +424,17 @@ function getOrderLockRef(db, orderId) {
  * Express
  * ========================= */
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigin = (origin) => {
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    const host = u.host;
+    if (PUBLIC_HOST && origin.startsWith(PUBLIC_HOST)) return true;
+    if (/localhost:\d+$/i.test(host)) return true;
+    return true; // fallback: keep permissive as antes
+  } catch { return true; }
+};
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -1902,10 +1916,15 @@ app.post("/api/tickets/checkin", async (req, res) => {
 /* =========================
  * Start
  * ========================= */
-app.listen(PORT, () => {
-  console.log(`Flow server escuchando en http://localhost:${PORT}`);
-});
-
 app.get('/api/payments/health', (_req, res) => {
   return res.json({ ok: true, webpay: hasWebpay, tbkEnv: TBK_ENV });
 });
+
+// En Vercel (serverless) NO hacemos listen; exportamos el app
+if (!IS_VERCEL && !process.env.DISABLE_LISTEN) {
+  app.listen(PORT, () => {
+    console.log(`Flow server escuchando en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
