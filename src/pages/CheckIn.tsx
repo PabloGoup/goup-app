@@ -6,7 +6,7 @@ import { getFirestore, doc, getDoc } from "firebase/firestore";
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
   (import.meta as any).env?.VITE_FLOW_SERVER_BASE ||
-  "http://localhost:8788";
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:8788");
 
 // Lookup response shape
 type Lookup = {
@@ -70,15 +70,36 @@ export default function CheckIn() {
     try {
       stopScanner();
 
-      // Request camera (rear if available)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
+      // Request camera (rear if available) with progressive fallbacks
+      async function openWith(constraints: MediaStreamConstraints) {
+        return navigator.mediaDevices.getUserMedia(constraints);
+      }
+
+      let stream: MediaStream | null = null;
+      try {
+        // 1) try environment with size ideals
+        stream = await openWith({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } as any,
+          audio: false,
+        });
+      } catch (e1) {
+        try {
+          // 2) enumerate devices to pick a back camera explicitly
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const backs = devices.filter((d) => d.kind === "videoinput" && /back|rear|environment/i.test(d.label || ""));
+          const pick = backs[0] || devices.find((d) => d.kind === "videoinput");
+          if (!pick) throw e1;
+          stream = await openWith({ video: { deviceId: { exact: pick.deviceId } } as any, audio: false });
+        } catch (e2) {
+          try {
+            // 3) last resort: let the browser choose
+            stream = await openWith({ video: true, audio: false });
+          } catch (e3) {
+            console.warn("No se pudo abrir la cámara", e3);
+            throw e3;
+          }
+        }
+      }
       streamRef.current = stream;
 
       // Attach to <video>
@@ -133,15 +154,24 @@ export default function CheckIn() {
           }
         }
       );
-    } catch (e) {
+    } catch (e: any) {
       console.warn("No se pudo inicializar la cámara", e);
-     
+      const name = e?.name || "";
+      const hint = name === "NotAllowedError"
+        ? "Permite el acceso a la cámara para este sitio (Ajustes > Safari/Chrome > Cámara)."
+        : name === "NotFoundError" || name === "DevicesNotFoundError"
+        ? "No se encontró una cámara disponible."
+        : name === "OverconstrainedError"
+        ? "No se pudo cumplir con las restricciones de video; reintentá sin fijar resolución."
+        : name === "NotReadableError"
+        ? "Otra app está usando la cámara. Cierra apps de cámara/Meet/Zoom y reintenta."
+        : "Revisa que estés en HTTPS y con permisos activos.";
+      setMsg(`⚠️ ${name || "Error"}. ${hint}`);
     }
   }
 
-  // Start on mount; keep active. Do NOT stop after check-in.
+  // Do not auto-start on mount: iOS/Safari requiere gesto del usuario
   useEffect(() => {
-    startScanner();
     return () => stopScanner();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -286,7 +316,7 @@ export default function CheckIn() {
 
       <div className="rounded-lg border border-white/10 p-3 mb-4">
         <div className="text-sm mb-2">Escanear con cámara (si está disponible)</div>
-        <video ref={videoRef} className="w-full rounded bg-black/40" playsInline muted />
+        <video ref={videoRef} className="w-full rounded bg-black/40" playsInline muted autoPlay />
         <div className="mt-2 flex gap-2">
           {!scanning ? (
             <button className="px-3 py-2 rounded-md bg-white/10 hover:bg-white/15" onClick={startScanner}>Iniciar cámara</button>
