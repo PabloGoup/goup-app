@@ -434,9 +434,16 @@ const allowedOrigin = (origin) => {
     return true; // fallback: keep permissive as antes
   } catch { return true; }
 };
+
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+/** CORS preflight for all API routes (useful on Vercel/edge) */
+app.options('*', cors({ origin: allowedOrigin, credentials: true }));
+
+/** Root API health for quick checks */
+app.get('/api', (_req, res) => res.json({ ok: true, service: 'flowServer', vercel: IS_VERCEL === true }));
 
 
 
@@ -1928,3 +1935,5 @@ if (!IS_VERCEL && !process.env.DISABLE_LISTEN) {
 }
 
 module.exports = app;
+/** also expose default for ESM importers (e.g. api/index.js using `import`) */
+module.exports.default = app;
