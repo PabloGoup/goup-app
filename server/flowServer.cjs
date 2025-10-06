@@ -1934,6 +1934,9 @@ if (!IS_VERCEL && !process.env.DISABLE_LISTEN) {
   });
 }
 
-module.exports = app;
-/** also expose default for ESM importers (e.g. api/index.js using `import`) */
-module.exports.default = app;
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORTS para distintos runtimes (Vercel/AWS/Node CJS/ESM)
+// ─────────────────────────────────────────────────────────────────────────────
+module.exports = app;            // CommonJS (Vercel/Node) – Express app es un handler (req,res)
+module.exports.handler = app;    // AWS style compatibility
+exports.default = app;           // ESM default
