@@ -1,6 +1,5 @@
-// api/flowServer.cjs
-// Puente para que Vercel trate a todo Express como una Serverless Function.
+// Enruta TODO lo que sea /api/* hacia tu app Express
 const app = require('../server/flowServer.cjs');
-module.exports = app;         // CJS (Vercel)
-module.exports.handler = app; // compat
-exports.default = app;        // ESM default
+module.exports = app;        // Vercel (Node) usa (req,res) => handler
+module.exports.handler = app;
+exports.default = app;
