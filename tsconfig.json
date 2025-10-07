@@ -16,5 +16,5 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["src", "server/api", "functions/notifyOnEvent.ts"]
+  "include": ["src", "server/api", "functions/notifyOnEvent.ts", "api/flow.cjs", "api/index.js", "api/tickets"]
 }
