@@ -1,9 +1,9 @@
 
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/flow" },
-    { "source": "/(.*)", "destination": "/" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/flowServer.cjs" },
+    { "src": "/(.*)", "dest": "/" }
   ],
   "headers": [
     {
