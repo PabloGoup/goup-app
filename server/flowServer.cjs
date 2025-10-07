@@ -442,8 +442,25 @@ app.use(bodyParser.json());
 /** CORS preflight for all API routes (useful on Vercel/edge) */
 app.options('*', cors({ origin: allowedOrigin, credentials: true }));
 
+
 /** Root API health for quick checks */
-app.get('/api', (_req, res) => res.json({ ok: true, service: 'flowServer', vercel: IS_VERCEL === true }));
+app.get('/api', (_req, res) => {
+  let projectId = 'unknown';
+  try {
+    projectId = (admin.app().options && admin.app().options.projectId) || process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'unknown';
+  } catch {}
+  return res.json({ ok: true, service: 'flowServer', vercel: IS_VERCEL === true, projectId, publicHost: PUBLIC_HOST || null });
+});
+
+// Explicit health route for Vercel probe
+app.get('/api/health', (_req, res) => {
+  try {
+    const projectId = (admin.app().options && admin.app().options.projectId) || process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'unknown';
+    return res.json({ ok: true, service: 'flowServer', vercel: IS_VERCEL === true, projectId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
 
 
 
