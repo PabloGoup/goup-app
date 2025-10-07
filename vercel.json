@@ -1,7 +1,11 @@
 {
-  "version": 2,
+
   "functions": {
-    "api/index.js": { "runtime": "nodejs18.x" }
+    "api/index.js": {
+      "runtime": "nodejs20.x", 
+      "memory": 1024,
+      "maxDuration": 10
+    }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
