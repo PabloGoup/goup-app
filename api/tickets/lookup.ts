@@ -1,36 +1,50 @@
-// /api/tickets/lookup.ts
-export default async function handler(req: any, res: any) {
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+/**
+ * GET /api/tickets/lookup?code=...
+ * Proxies the request to the upstream Flow/Backend defined by BACKEND_BASE
+ * and returns the JSON payload to the client.
+ */
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
     if (req.method !== 'GET') {
-      res.status(405).json({ error: 'Method Not Allowed' });
+      res.status(405).json({ ok: false, error: 'Method Not Allowed' });
       return;
     }
-  
-    const code = req.query.code;
-    if (!code || typeof code !== 'string') {
-      res.status(400).json({ error: 'Missing code' });
+
+    const code = (req.query.code as string) || '';
+    if (!code) {
+      res.status(400).json({ ok: false, error: 'Missing "code" query param' });
       return;
     }
-  
-    // BACKEND_BASE: define esta env en Vercel (por ahora tu ngrok https o tu API real)
+
     const base = process.env.BACKEND_BASE;
     if (!base) {
-      res.status(500).json({ error: 'Missing BACKEND_BASE env' });
+      res.status(500).json({ ok: false, error: 'BACKEND_BASE not configured' });
       return;
     }
-  
-    try {
-      const r = await fetch(`${base}/api/tickets/lookup?code=${encodeURIComponent(code)}`, {
-        headers: { 'Accept': 'application/json' }
-      });
-      const text = await r.text();
-      // Intenta parsear JSON; si viene HTML, propaga error legible
-      try {
-        const json = JSON.parse(text);
-        res.status(r.status).json(json);
-      } catch {
-        res.status(502).json({ error: 'Upstream did not return JSON', body: text.slice(0, 500) });
-      }
-    } catch (err: any) {
-      res.status(502).json({ error: 'Upstream fetch failed', message: err?.message });
+
+    const url = `${base.replace(/\/$/, '')}/api/tickets/lookup?code=${encodeURIComponent(code)}`;
+
+    const upstream = await fetch(url, {
+      headers: {
+        'accept': 'application/json',
+      },
+    });
+
+    const contentType = upstream.headers.get('content-type') || '';
+    const status = upstream.status;
+
+    // Ensure we only pass-through JSON
+    if (!contentType.includes('application/json')) {
+      const text = await upstream.text().catch(() => '');
+      res.status(502).json({ ok: false, error: 'Upstream did not return JSON', status, preview: text.slice(0, 200) });
+      return;
     }
+
+    const data = await upstream.json();
+    res.status(status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || 'Unexpected error' });
   }
+}

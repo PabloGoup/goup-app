@@ -1,4 +1,8 @@
-// /api/firebase/diag.ts
+/**
+ * /api/firebase/diag.ts
+ * CommonJS-compatible handler (compiles to module.exports)
+ * Avoids "Unexpected token 'export'" in Vercel Node runtime.
+ */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Importa firebase-admin SIN forzar inicialización aquí.
@@ -14,7 +18,9 @@ function safeApp() {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+// Definimos el handler como constante y exportamos con `export = handler`
+// para que TypeScript emita `module.exports = handler` en el JS resultante.
+const handler = async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;
@@ -29,13 +35,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const app = safeApp();
   const opts = app?.options || {};
-  const detectedProject =
-    opts.projectId || envProject || null;
+  const detectedProject = opts.projectId || envProject || null;
 
   const usingEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
   const firestoreEmulator = process.env.FIRESTORE_EMULATOR_HOST || null;
 
-  // No tocamos Firestore si no hay app; solo informamos señales
   const payload = {
     ok: true,
     ts: Date.now(),
@@ -47,4 +51,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   res.status(200).json(payload);
-}
+};
+
+// 👉 CommonJS export so Node (no "type":"module") can execute without "Unexpected token 'export'"
+// Allow `module` in TS context:
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const module: any;
+module.exports = handler;
