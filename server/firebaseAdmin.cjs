@@ -12,7 +12,15 @@ const admin = require("firebase-admin");
  * 5) Application Default Credentials (ADC)
  */
 
+
 let app;
+// Reusar instancia si ya existe (evita doble init en runtime serverless)
+if (!app && admin.apps && admin.apps.length) {
+  try {
+    app = admin.app();
+    console.log("[FirebaseAdmin] Reusing existing app instance");
+  } catch {}
+}
 
 const ENV_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 
