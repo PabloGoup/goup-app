@@ -38,10 +38,15 @@ function normalizePrivateKey(pk) {
   return v.replace(/\\n/g, "\n");
 }
 
+function safeApp() {
+  try { return (admin.apps && admin.apps.length) ? admin.app() : null; } catch { return null; }
+}
+
 function logInit(source, extra = {}) {
+  const a = safeApp();
   const base = {
     source,
-    project: (admin.app().options && admin.app().options.projectId) || ENV_PROJECT_ID || "<desconocido>",
+    project: (a && a.options && a.options.projectId) || ENV_PROJECT_ID || "<desconocido>",
   };
   console.log("[FirebaseAdmin] Inicializado:", { ...base, ...extra });
 }
@@ -144,8 +149,9 @@ const db = (() => {
 })();
 
 function getDiagnostics() {
+  const a = safeApp();
   return {
-    projectId: (admin.app?.().options && admin.app().options.projectId) || ENV_PROJECT_ID || null,
+    projectId: (a && a.options && a.options.projectId) || ENV_PROJECT_ID || null,
     hasEnvFields: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY),
     hasJson: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     hasJsonB64: !!process.env.FIREBASE_SERVICE_ACCOUNT_B64,
