@@ -21,8 +21,13 @@ function safeParseJSON(str) {
 }
 
 function normalizePrivateKey(pk) {
-  // Permite tanto llaves con "\n" escapados como llaves con saltos reales
-  return (pk || "").replace(/\\n/g, "\n");
+  if (!pk) return "";
+  let v = String(pk).trim();
+  // quita comillas envolventes si vienen del panel ("-----BEGIN...-----")
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  }
+  return v.replace(/\\n/g, "\n");
 }
 
 function logInit(source, extra = {}) {
@@ -51,16 +56,31 @@ else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL &&
   });
   logInit("ENV_FIELDS", { clientEmail: clientEmail?.slice(0, 6) + "…" });
 }
-else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-  // 3) JSON embebido por ENV
-  const sa = safeParseJSON(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  if (!sa) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON no es JSON válido");
-  if (sa.private_key) sa.private_key = normalizePrivateKey(sa.private_key);
-  app = admin.initializeApp({
-    credential: admin.credential.cert(sa),
-    projectId: sa.project_id || ENV_PROJECT_ID,
-  });
-  logInit("SERVICE_ACCOUNT_JSON", { clientEmail: (sa.client_email||'').slice(0,6) + "…" });
+else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+  // 3) JSON embebido por ENV (texto o base64)
+  let sa = null;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    sa = safeParseJSON(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    if (!sa) {
+      console.error("[FirebaseAdmin] FIREBASE_SERVICE_ACCOUNT_JSON no es JSON válido (ignorando y probando otras opciones)");
+    }
+  }
+  if (!sa && process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+    try {
+      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8');
+      sa = safeParseJSON(decoded);
+    } catch (e) {
+      console.error("[FirebaseAdmin] FIREBASE_SERVICE_ACCOUNT_B64 inválido:", e?.message || e);
+    }
+  }
+  if (sa) {
+    if (sa.private_key) sa.private_key = normalizePrivateKey(sa.private_key);
+    app = admin.initializeApp({
+      credential: admin.credential.cert(sa),
+      projectId: sa.project_id || ENV_PROJECT_ID,
+    });
+    logInit("SERVICE_ACCOUNT_ENV", { clientEmail: (sa.client_email||'').slice(0,6) + "…" });
+  }
 }
 else if (process.env.FIREBASE_SA_PATH) {
   // 4) Ruta a archivo de Service Account
@@ -76,25 +96,55 @@ else if (process.env.FIREBASE_SA_PATH) {
   logInit("SERVICE_ACCOUNT_PATH", { path: jsonPath });
 }
 else {
-  // 5) ADC (GOOGLE_APPLICATION_CREDENTIALS, gcloud auth application-default login, Workload Identity, etc.)
-  app = admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: ENV_PROJECT_ID,
-  });
-  logInit("ADC");
+  // 5) ADC (GOOGLE_APPLICATION_CREDENTIALS, gcloud ADC, Workload Identity, etc.)
+  try {
+    app = admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: ENV_PROJECT_ID,
+    });
+    logInit("ADC");
+  } catch (e) {
+    console.error("[FirebaseAdmin] ADC init failed:", e?.message || e);
+  }
 }
 
-const db = admin.firestore();
-try { db.settings({ ignoreUndefinedProperties: true }); } catch {}
+if (!app && process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+  try {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+    app = admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+      projectId,
+    });
+    logInit("ENV_FIELDS_FALLBACK", { clientEmail: clientEmail?.slice(0, 6) + "…" });
+  } catch (e) {
+    console.error("[FirebaseAdmin] ENV_FIELDS fallback failed:", e?.message || e);
+  }
+}
+
+const db = (() => {
+  try {
+    if (!app) return null;
+    const fdb = admin.firestore();
+    try { fdb.settings({ ignoreUndefinedProperties: true }); } catch {}
+    return fdb;
+  } catch (e) {
+    console.error("[FirebaseAdmin] Firestore init failed:", e?.message || e);
+    return null;
+  }
+})();
 
 function getDiagnostics() {
   return {
-    projectId: (admin.app().options && admin.app().options.projectId) || ENV_PROJECT_ID || null,
+    projectId: (admin.app?.().options && admin.app().options.projectId) || ENV_PROJECT_ID || null,
     hasEnvFields: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY),
     hasJson: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    hasJsonB64: !!process.env.FIREBASE_SERVICE_ACCOUNT_B64,
     hasPath: !!process.env.FIREBASE_SA_PATH,
     usingEmulator: process.env.FIREBASE_EMULATOR === "1",
     firestoreEmulator: process.env.FIRESTORE_EMULATOR_HOST || null,
+    dbReady: !!db
   };
 }
 
